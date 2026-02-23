@@ -9,8 +9,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const GROK_API_KEY = Deno.env.get("GROK_API_KEY");
-    if (!GROK_API_KEY) throw new Error("GROK_API_KEY is not configured");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
     const { topic, numQuestions, subject, learningOutcomes } = await req.json();
 
@@ -42,14 +42,14 @@ IMPORTANT: Return ONLY valid JSON array, no markdown.`;
 ${subject ? `- Subject: ${subject}` : ''}
 ${learningOutcomes?.length ? `- Learning Outcomes:\n${learningOutcomes.map((o: string) => `  • ${o}`).join('\n')}` : ''}`;
 
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${GROK_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "grok-3-mini",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
