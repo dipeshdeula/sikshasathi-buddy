@@ -1,14 +1,12 @@
-// SikshaSathi Data Types & Seed Data
+// SikshaSathi Data Types (Supabase-backed)
 
-// ===== TYPES =====
-export type Role = 'admin' | 'teacher' | 'student' | 'parent';
+export type Role = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
 
-export interface User {
+export interface AppUser {
   id: string;
-  name: string;
+  name: string;       // mapped from profiles.full_name
   email: string;
   role: Role;
-  password: string;
 }
 
 export interface ClassRoom {
@@ -50,7 +48,6 @@ export interface Quiz {
   classId: string;
   topicId: string;
   title: string;
-  lessonPlanId?: string;
   createdBy: string;
   createdAt: string;
 }
@@ -123,74 +120,68 @@ export interface AuditLog {
   metadataJson?: Record<string, any>;
 }
 
-// ===== SEED DATA =====
-const uid = (n: number) => `user-${n.toString().padStart(3, '0')}`;
-const sid = (n: number) => `student-${n.toString().padStart(3, '0')}`;
+// Mappers: Supabase snake_case → App camelCase
+export const mapClassRoom = (row: any): ClassRoom => ({
+  id: row.id, name: row.name, grade: row.grade, teacherId: row.teacher_id,
+});
 
-export const SEED_USERS: User[] = [
-  { id: 'admin-001', name: 'Admin Shrestha', email: 'admin@siksha.np', role: 'admin', password: 'admin123' },
-  { id: 'teacher-001', name: 'Sita Gurung', email: 'sita@siksha.np', role: 'teacher', password: 'teacher123' },
-  ...Array.from({ length: 20 }, (_, i) => ({
-    id: sid(i + 1),
-    name: [
-      'Aarav Tamang', 'Bina Rai', 'Chandan Thapa', 'Deepa Magar', 'Ekta Sharma',
-      'Firoj Ansari', 'Gita Basnet', 'Hari Adhikari', 'Isha Poudel', 'Jeevan KC',
-      'Kabita Limbu', 'Laxman Bhandari', 'Mina Ghimire', 'Nabin Karki', 'Om Dahal',
-      'Puja Rijal', 'Quasar Shahi', 'Ramesh Khatri', 'Sunita Pandey', 'Tilak Bhatt',
-    ][i],
-    email: `student${i + 1}@siksha.np`,
-    role: 'student' as Role,
-    password: 'student123',
-  })),
-  { id: 'parent-001', name: 'Kamal Tamang', email: 'parent@siksha.np', role: 'parent', password: 'parent123' },
-];
+export const mapSubject = (row: any): Subject => ({ id: row.id, name: row.name });
 
-export const SEED_CLASSES: ClassRoom[] = [
-  { id: 'class-001', name: 'Grade 7 - Section A', grade: 7, teacherId: 'teacher-001' },
-];
+export const mapTopic = (row: any): Topic => ({
+  id: row.id, subjectId: row.subject_id, grade: row.grade, name: row.name, cdcTag: row.cdc_tag || '',
+});
 
-export const SEED_CLASS_STUDENTS = Array.from({ length: 20 }, (_, i) => ({
-  classId: 'class-001',
-  studentId: sid(i + 1),
-}));
+export const mapLessonPlan = (row: any): LessonPlan => ({
+  id: row.id, classId: row.class_id, topicId: row.topic_id, level: row.level,
+  durationMinutes: row.duration_minutes, objectives: row.objectives || '',
+  script: row.script || '', boardwork: row.boardwork || '', homework: row.homework || '',
+  createdBy: row.created_by, createdAt: row.created_at,
+});
 
-export const SEED_PARENT_LINKS = [
-  { parentId: 'parent-001', studentId: 'student-001' },
-];
+export const mapQuiz = (row: any): Quiz => ({
+  id: row.id, classId: row.class_id, topicId: row.topic_id, title: row.title,
+  createdBy: row.created_by, createdAt: row.created_at,
+});
 
-export const SEED_SUBJECTS: Subject[] = [
-  { id: 'subj-math', name: 'Math' },
-  { id: 'subj-science', name: 'Science' },
-  { id: 'subj-nepali', name: 'Nepali' },
-];
+export const mapQuizQuestion = (row: any): QuizQuestion => ({
+  id: row.id, quizId: row.quiz_id, qtype: row.qtype, difficulty: row.difficulty,
+  prompt: row.prompt, optionsJson: row.options_json || [], answerKey: row.answer_key || '',
+  explanation: row.explanation || '',
+});
 
-export const SEED_TOPICS: Topic[] = [
-  { id: 'topic-fractions', subjectId: 'subj-math', grade: 7, name: 'Fractions', cdcTag: 'CDC-MATH-7-01' },
-  { id: 'topic-decimals', subjectId: 'subj-math', grade: 7, name: 'Decimals', cdcTag: 'CDC-MATH-7-02' },
-  { id: 'topic-algebra', subjectId: 'subj-math', grade: 7, name: 'Basic Algebra', cdcTag: 'CDC-MATH-7-03' },
-  { id: 'topic-exothermic', subjectId: 'subj-science', grade: 7, name: 'Exothermic Reactions', cdcTag: 'CDC-SCI-7-01' },
-  { id: 'topic-photosyn', subjectId: 'subj-science', grade: 7, name: 'Photosynthesis', cdcTag: 'CDC-SCI-7-02' },
-  { id: 'topic-cells', subjectId: 'subj-science', grade: 7, name: 'Plant & Animal Cells', cdcTag: 'CDC-SCI-7-03' },
-  { id: 'topic-nepchap1', subjectId: 'subj-nepali', grade: 7, name: 'हाम्रो नेपाल (Our Nepal)', cdcTag: 'CDC-NEP-7-01' },
-  { id: 'topic-nepchap2', subjectId: 'subj-nepali', grade: 7, name: 'कथा लेखन (Story Writing)', cdcTag: 'CDC-NEP-7-02' },
-];
+export const mapQuizAttempt = (row: any): QuizAttempt => ({
+  id: row.id, quizId: row.quiz_id, studentId: row.student_id,
+  submittedAt: row.submitted_at, score: row.score, answersJson: row.answers_json || {},
+});
 
-// Generate sample mastery data
-export const SEED_MASTERY: MasteryState[] = SEED_TOPICS.flatMap(topic =>
-  Array.from({ length: 20 }, (_, i) => ({
-    id: `mastery-${topic.id}-${sid(i + 1)}`,
-    studentId: sid(i + 1),
-    topicId: topic.id,
-    masteryScore: Math.round(30 + Math.random() * 70),
-    updatedAt: new Date().toISOString(),
-  }))
-);
+export const mapMastery = (row: any): MasteryState => ({
+  id: row.id, studentId: row.student_id, topicId: row.topic_id,
+  masteryScore: row.mastery_score, updatedAt: row.updated_at,
+});
 
-export const SEED_CHECKINS: StudentCheckin[] = Array.from({ length: 20 }, (_, i) => ({
-  id: `checkin-${i}`,
-  studentId: sid(i + 1),
-  classId: 'class-001',
-  date: new Date().toISOString().split('T')[0],
-  happinessScore: Math.ceil(Math.random() * 5),
-  comment: ['Great class!', 'I need help', 'Fun today', 'A bit tired', ''][Math.floor(Math.random() * 5)],
-}));
+export const mapCheckin = (row: any): StudentCheckin => ({
+  id: row.id, studentId: row.student_id, classId: row.class_id,
+  date: row.date, happinessScore: row.happiness_score, comment: row.comment || '',
+});
+
+export const mapReport = (row: any): WeeklyReport => ({
+  id: row.id, classId: row.class_id, studentId: row.student_id,
+  weekStart: row.week_start, reportText: row.report_text || '',
+  interventionsText: row.interventions_text || '', status: row.status,
+  approvedBy: row.approved_by, sentAt: row.sent_at,
+});
+
+export const mapNotification = (row: any): Notification => ({
+  id: row.id, userId: row.user_id, type: row.type || '',
+  message: row.message || '', createdAt: row.created_at, readAt: row.read_at,
+});
+
+export const mapAuditLog = (row: any): AuditLog => ({
+  id: row.id, actorUserId: row.actor_user_id, action: row.action,
+  entityType: row.entity_type || '', entityId: row.entity_id || '',
+  createdAt: row.created_at, metadataJson: row.metadata_json,
+});
+
+export const mapProfile = (row: any): { id: string; name: string; email?: string } => ({
+  id: row.id, name: row.full_name || '',
+});

@@ -7,13 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Role } from '@/lib/data';
+import type { Role } from '@/lib/data';
 
 const Register = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<Role>('teacher');
+  const [role, setRole] = useState<Role>('STUDENT');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -25,8 +25,8 @@ const Register = () => {
     setLoading(true);
     const ok = await register(name, email, password, role);
     setLoading(false);
-    if (ok) navigate(`/${role}`);
-    else toast({ title: 'Registration failed', description: 'Email already exists', variant: 'destructive' });
+    if (ok) navigate(`/${role.toLowerCase()}`);
+    else toast({ title: 'Registration failed', description: 'Email may already exist or check your connection', variant: 'destructive' });
   };
 
   return (
@@ -59,9 +59,9 @@ const Register = () => {
               <Select value={role} onValueChange={v => setRole(v as Role)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="teacher">Teacher</SelectItem>
-                  <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="parent">Parent</SelectItem>
+                  <SelectItem value="TEACHER">Teacher</SelectItem>
+                  <SelectItem value="STUDENT">Student</SelectItem>
+                  <SelectItem value="PARENT">Parent</SelectItem>
                 </SelectContent>
               </Select>
             </div>

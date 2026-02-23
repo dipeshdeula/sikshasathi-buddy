@@ -16,33 +16,19 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const demoAccounts = [
-    { label: 'Teacher', email: 'sita@siksha.np', password: 'teacher123' },
-    { label: 'Student', email: 'student1@siksha.np', password: 'student123' },
-    { label: 'Parent', email: 'parent@siksha.np', password: 'parent123' },
-    { label: 'Admin', email: 'admin@siksha.np', password: 'admin123' },
-  ];
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const ok = await login(email, password);
     setLoading(false);
     if (ok) {
-      const user = JSON.parse(localStorage.getItem('siksha_user') || '{}');
-      navigate(`/${user.role}`);
+      const cached = localStorage.getItem('siksha_user');
+      if (cached) {
+        const u = JSON.parse(cached);
+        navigate(`/${u.role.toLowerCase()}`);
+      }
     } else {
       toast({ title: 'Login failed', description: 'Invalid email or password', variant: 'destructive' });
-    }
-  };
-
-  const quickLogin = async (em: string, pw: string) => {
-    setLoading(true);
-    const ok = await login(em, pw);
-    setLoading(false);
-    if (ok) {
-      const user = JSON.parse(localStorage.getItem('siksha_user') || '{}');
-      navigate(`/${user.role}`);
     }
   };
 
@@ -76,17 +62,6 @@ const Login = () => {
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
-
-          <div className="mt-6">
-            <p className="text-xs text-muted-foreground text-center mb-3">Quick demo login:</p>
-            <div className="grid grid-cols-2 gap-2">
-              {demoAccounts.map(a => (
-                <Button key={a.label} variant="outline" size="sm" onClick={() => quickLogin(a.email, a.password)} disabled={loading}>
-                  {a.label}
-                </Button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
