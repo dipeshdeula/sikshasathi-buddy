@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { syncFromSupabase } from "./lib/store";
 import AppLayout from "./components/AppLayout";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -41,50 +43,61 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
   if (!user) return <Navigate to="/login" />;
-  if (!allowedRoles.includes(user.role)) return <Navigate to={`/${user.role}`} />;
+  if (!allowedRoles.includes(user.role.toLowerCase())) return <Navigate to={`/${user.role.toLowerCase()}`} />;
   return <AppLayout>{children}</AppLayout>;
 };
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
-  if (user) return <Navigate to={`/${user.role}`} />;
+  if (user) return <Navigate to={`/${user.role.toLowerCase()}`} />;
+  return <>{children}</>;
+};
+
+// Sync data from Supabase after auth
+const SyncLayer = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  useEffect(() => {
+    if (user) syncFromSupabase();
+  }, [user]);
   return <>{children}</>;
 };
 
 const AppRoutes = () => (
-  <Routes>
-    <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
-    <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-    <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+  <SyncLayer>
+    <Routes>
+      <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
+      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
-    {/* Teacher routes */}
-    <Route path="/teacher" element={<ProtectedRoute allowedRoles={['teacher']}><TeacherDashboard /></ProtectedRoute>} />
-    <Route path="/teacher/lessons" element={<ProtectedRoute allowedRoles={['teacher']}><LessonPlanBuilder /></ProtectedRoute>} />
-    <Route path="/teacher/quizzes" element={<ProtectedRoute allowedRoles={['teacher']}><QuizBuilder /></ProtectedRoute>} />
-    <Route path="/teacher/results" element={<ProtectedRoute allowedRoles={['teacher']}><ResultsEntry /></ProtectedRoute>} />
-    <Route path="/teacher/mastery" element={<ProtectedRoute allowedRoles={['teacher']}><MasteryDashboard /></ProtectedRoute>} />
-    <Route path="/teacher/reports" element={<ProtectedRoute allowedRoles={['teacher']}><WeeklyReports /></ProtectedRoute>} />
+      {/* Teacher routes */}
+      <Route path="/teacher" element={<ProtectedRoute allowedRoles={['teacher']}><TeacherDashboard /></ProtectedRoute>} />
+      <Route path="/teacher/lessons" element={<ProtectedRoute allowedRoles={['teacher']}><LessonPlanBuilder /></ProtectedRoute>} />
+      <Route path="/teacher/quizzes" element={<ProtectedRoute allowedRoles={['teacher']}><QuizBuilder /></ProtectedRoute>} />
+      <Route path="/teacher/results" element={<ProtectedRoute allowedRoles={['teacher']}><ResultsEntry /></ProtectedRoute>} />
+      <Route path="/teacher/mastery" element={<ProtectedRoute allowedRoles={['teacher']}><MasteryDashboard /></ProtectedRoute>} />
+      <Route path="/teacher/reports" element={<ProtectedRoute allowedRoles={['teacher']}><WeeklyReports /></ProtectedRoute>} />
 
-    {/* Student routes */}
-    <Route path="/student" element={<ProtectedRoute allowedRoles={['student']}><StudentHome /></ProtectedRoute>} />
-    <Route path="/student/coach" element={<ProtectedRoute allowedRoles={['student']}><AICoach /></ProtectedRoute>} />
-    <Route path="/student/checkin" element={<ProtectedRoute allowedRoles={['student']}><CheckIn /></ProtectedRoute>} />
-    <Route path="/student/progress" element={<ProtectedRoute allowedRoles={['student']}><StudentProgress /></ProtectedRoute>} />
+      {/* Student routes */}
+      <Route path="/student" element={<ProtectedRoute allowedRoles={['student']}><StudentHome /></ProtectedRoute>} />
+      <Route path="/student/coach" element={<ProtectedRoute allowedRoles={['student']}><AICoach /></ProtectedRoute>} />
+      <Route path="/student/checkin" element={<ProtectedRoute allowedRoles={['student']}><CheckIn /></ProtectedRoute>} />
+      <Route path="/student/progress" element={<ProtectedRoute allowedRoles={['student']}><StudentProgress /></ProtectedRoute>} />
 
-    {/* Parent routes */}
-    <Route path="/parent" element={<ProtectedRoute allowedRoles={['parent']}><ParentSnapshot /></ProtectedRoute>} />
-    <Route path="/parent/reports" element={<ProtectedRoute allowedRoles={['parent']}><ParentReports /></ProtectedRoute>} />
-    <Route path="/parent/notifications" element={<ProtectedRoute allowedRoles={['parent']}><ParentNotifications /></ProtectedRoute>} />
+      {/* Parent routes */}
+      <Route path="/parent" element={<ProtectedRoute allowedRoles={['parent']}><ParentSnapshot /></ProtectedRoute>} />
+      <Route path="/parent/reports" element={<ProtectedRoute allowedRoles={['parent']}><ParentReports /></ProtectedRoute>} />
+      <Route path="/parent/notifications" element={<ProtectedRoute allowedRoles={['parent']}><ParentNotifications /></ProtectedRoute>} />
 
-    {/* Admin routes */}
-    <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-    <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />
-    <Route path="/admin/classes" element={<ProtectedRoute allowedRoles={['admin']}><AdminClasses /></ProtectedRoute>} />
-    <Route path="/admin/subjects" element={<ProtectedRoute allowedRoles={['admin']}><AdminSubjects /></ProtectedRoute>} />
+      {/* Admin routes */}
+      <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />
+      <Route path="/admin/classes" element={<ProtectedRoute allowedRoles={['admin']}><AdminClasses /></ProtectedRoute>} />
+      <Route path="/admin/subjects" element={<ProtectedRoute allowedRoles={['admin']}><AdminSubjects /></ProtectedRoute>} />
 
-    <Route path="*" element={<NotFound />} />
-  </Routes>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </SyncLayer>
 );
 
 const App = () => (

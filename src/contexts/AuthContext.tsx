@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Role, SEED_USERS } from '../lib/data';
+import { supabase } from '../lib/supabaseClient';
+import type { AppUser, Role } from '../lib/data';
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string, role: Role) => Promise<boolean>;
   logout: () => void;
@@ -17,41 +18,112 @@ export const useAuth = () => {
   return ctx;
 };
 
+async function fetchAppUser(userId: string, email: string): Promise<AppUser | null> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', userId)
+    .single();
+
+  const { data: roleData } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .single();
+
+  if (!profile || !roleData) return null;
+
+  return {
+    id: userId,
+    name: profile.full_name || '',
+    email,
+    role: roleData.role as Role,
+  };
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem('siksha_user');
-    if (stored) {
-      try { setUser(JSON.parse(stored)); } catch { /* ignore */ }
-    }
-    setIsLoading(false);
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          // Use setTimeout to avoid Supabase deadlock on initial load
+          setTimeout(async () => {
+            const appUser = await fetchAppUser(session.user.id, session.user.email || '');
+            if (appUser) {
+              setUser(appUser);
+              localStorage.setItem('siksha_user', JSON.stringify(appUser));
+            }
+            setIsLoading(false);
+          }, 0);
+        } else {
+          setUser(null);
+          localStorage.removeItem('siksha_user');
+          setIsLoading(false);
+        }
+      }
+    );
+
+    // Then check for existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const appUser = await fetchAppUser(session.user.id, session.user.email || '');
+        if (appUser) {
+          setUser(appUser);
+          localStorage.setItem('siksha_user', JSON.stringify(appUser));
+        }
+      } else {
+        // Try cached user for offline support
+        const cached = localStorage.getItem('siksha_user');
+        if (cached) {
+          try { setUser(JSON.parse(cached)); } catch {}
+        }
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    const allUsers = JSON.parse(localStorage.getItem('siksha_users') || JSON.stringify(SEED_USERS));
-    const found = allUsers.find((u: User) => u.email === email && u.password === password);
-    if (found) {
-      setUser(found);
-      localStorage.setItem('siksha_user', JSON.stringify(found));
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) return false;
+    const appUser = await fetchAppUser(data.user.id, data.user.email || '');
+    if (appUser) {
+      setUser(appUser);
+      localStorage.setItem('siksha_user', JSON.stringify(appUser));
       return true;
     }
     return false;
   };
 
   const register = async (name: string, email: string, password: string, role: Role) => {
-    const allUsers: User[] = JSON.parse(localStorage.getItem('siksha_users') || JSON.stringify(SEED_USERS));
-    if (allUsers.find(u => u.email === email)) return false;
-    const newUser: User = { id: `user-${Date.now()}`, name, email, password, role };
-    allUsers.push(newUser);
-    localStorage.setItem('siksha_users', JSON.stringify(allUsers));
-    setUser(newUser);
-    localStorage.setItem('siksha_user', JSON.stringify(newUser));
-    return true;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name, role },
+      },
+    });
+    if (error || !data.user) return false;
+
+    // The trigger handles profile + role creation via raw_user_meta_data
+    // Wait a moment for trigger to complete, then fetch
+    await new Promise(r => setTimeout(r, 500));
+    const appUser = await fetchAppUser(data.user.id, email);
+    if (appUser) {
+      setUser(appUser);
+      localStorage.setItem('siksha_user', JSON.stringify(appUser));
+      return true;
+    }
+    return false;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem('siksha_user');
   };

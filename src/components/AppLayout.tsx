@@ -4,8 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import OfflineBanner from './OfflineBanner';
 import {
   LayoutDashboard, BookOpen, FileQuestion, ClipboardList, BarChart3,
-  FileText, Bell, Users, Settings, LogOut, Menu, X, GraduationCap,
-  MessageCircle, SmilePlus, TrendingUp, Home, Bot, ChevronRight,
+  FileText, Bell, Users, LogOut, Menu, X, GraduationCap,
+  SmilePlus, TrendingUp, Home, Bot, ChevronRight,
 } from 'lucide-react';
 
 const navItems: Record<string, { label: string; icon: ReactNode; path: string }[]> = {
@@ -43,16 +43,15 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (!user) return null;
-  const items = navItems[user.role] || [];
+  const roleKey = user.role.toLowerCase();
+  const items = navItems[roleKey] || [];
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-foreground/20 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 gradient-hero flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-5 flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg bg-accent flex items-center justify-center">
@@ -60,7 +59,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           </div>
           <div>
             <h1 className="text-lg font-bold text-primary-foreground">SikshaSathi</h1>
-            <p className="text-xs text-primary-foreground/60 capitalize">{user.role} Panel</p>
+            <p className="text-xs text-primary-foreground/60 capitalize">{roleKey} Panel</p>
           </div>
           <button className="lg:hidden ml-auto text-primary-foreground" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
@@ -108,7 +107,6 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <OfflineBanner />
         <header className="h-14 border-b border-border bg-card px-4 flex items-center gap-4 lg:px-6">
