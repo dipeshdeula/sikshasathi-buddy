@@ -29,7 +29,7 @@ const AICoach = () => {
     setMessages(prev => [...prev, { role: 'user', content: question }]);
     setLoading(true);
 
-    const resp = await aiService.generateCoachResponse({ topic: topic.name, question });
+    const resp = await aiService.generateCoachResponse({ topic: topic.title, question });
     setMessages(prev => [...prev, {
       role: 'coach', content: resp.explanation, hints: resp.hints, practiceQuestions: resp.practiceQuestions,
     }]);
@@ -46,7 +46,7 @@ const AICoach = () => {
   const showAnswer = async () => {
     if (!topic) return;
     setLoading(true);
-    const resp = await aiService.generateCoachResponse({ topic: topic.name, question: 'Show answer', showAnswer: true });
+    const resp = await aiService.generateCoachResponse({ topic: topic.title, question: 'Show answer', showAnswer: true });
     setMessages(prev => [...prev, { role: 'coach', content: resp.explanation }]);
     setLoading(false);
 
@@ -69,7 +69,7 @@ const AICoach = () => {
         <div className="w-48">
           <Select value={topicId} onValueChange={setTopicId}>
             <SelectTrigger><SelectValue placeholder="Pick topic" /></SelectTrigger>
-            <SelectContent>{topics.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+            <SelectContent>{topics.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </div>
@@ -120,7 +120,7 @@ const AICoach = () => {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && askCoach()}
-          placeholder={topic ? `Ask about ${topic.name}…` : 'Select a topic first'}
+          placeholder={topic ? `Ask about ${topic.title}…` : 'Select a topic first'}
           disabled={!topicId || loading}
         />
         <Button onClick={askCoach} disabled={!topicId || !input.trim() || loading} size="icon">

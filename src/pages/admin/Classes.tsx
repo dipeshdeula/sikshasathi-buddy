@@ -15,7 +15,7 @@ const AdminClasses = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">{c.name}</h2>
-                <p className="text-sm text-muted-foreground">Grade {c.grade} · Teacher: {teacher?.name || 'Unassigned'}</p>
+                <p className="text-sm text-muted-foreground">Grade: {c.gradeId ? 'Assigned' : 'N/A'} · Teacher: {teacher?.name || 'Unassigned'}</p>
               </div>
               <span className="bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full">
                 {students.length} students

@@ -20,7 +20,7 @@ const TeacherDashboard = () => {
   const classes = db.classes.getByTeacher(user.id);
   const classId = classes[0]?.id;
   const students = classId ? db.classes.getStudents(classId) : [];
-  const lessons = classId ? db.lessonPlans.getByClass(classId) : [];
+  const lessons = user ? db.lessonPlans.getByTeacher(user.id) : [];
   const quizzes = classId ? db.quizzes.getByClass(classId) : [];
   const checkins = classId ? db.checkins.getByClass(classId) : [];
   const avgHappiness = checkins.length > 0 ? (checkins.reduce((s, c) => s + c.happinessScore, 0) / checkins.length).toFixed(1) : '—';

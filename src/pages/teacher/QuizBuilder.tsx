@@ -21,16 +21,17 @@ const QuizBuilder = () => {
   const [questions, setQuestions] = useState<Omit<QuizQuestion, 'id' | 'quizId'>[]>([]);
   const [generating, setGenerating] = useState(false);
 
-  const topics = subjectId ? db.topics.getBySubject(subjectId) : [];
+  const units = subjectId ? db.units.getBySubject(subjectId) : [];
+  const topics = units.length > 0 ? units.flatMap(u => db.topics.getByUnit(u.id)) : [];
   const classes = user ? db.classes.getByTeacher(user.id) : [];
 
   const handleGenerate = async () => {
     const topic = db.topics.getAll().find(t => t.id === topicId);
     if (!topic) return;
     setGenerating(true);
-    const qs = await aiService.generateQuiz({ topic: topic.name, numQuestions: numQ });
+    const qs = await aiService.generateQuiz({ topic: topic.title, numQuestions: numQ });
     setQuestions(qs);
-    setTitle(`${topic.name} Quiz`);
+    setTitle(`${topic.title} Quiz`);
     setGenerating(false);
     toast({ title: `Generated ${qs.length} questions!` });
   };
@@ -65,7 +66,7 @@ const QuizBuilder = () => {
             <Label>Topic</Label>
             <Select value={topicId} onValueChange={setTopicId}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>{topics.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{topics.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div>
