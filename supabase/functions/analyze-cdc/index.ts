@@ -1,0 +1,273 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Missing authorization header");
+
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Verify the user
+    const anonClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!);
+    const { data: { user }, error: authError } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (authError || !user) throw new Error("Unauthorized");
+
+    const { uploadId, fileContent, gradeName, subjectName } = await req.json();
+
+    if (!fileContent || !uploadId) throw new Error("Missing fileContent or uploadId");
+
+    // Update status to processing
+    await supabaseClient.from("cdc_uploads").update({ status: "processing" }).eq("id", uploadId);
+
+    const systemPrompt = `You are an expert curriculum analyst for the Nepal CDC (Curriculum Development Center) education system.
+You will receive text content extracted from a CDC curriculum document.
+
+Your task is to extract and structure the curriculum into the following hierarchy:
+- Grade/Class Level
+- Subject
+- Units (with order)
+- Topics within each unit (with order, estimated minutes, difficulty level)
+- Learning Outcomes for each topic
+- Teaching Guidelines for each topic
+- Assessment Indicators for each topic
+
+Return a JSON object with this EXACT structure:
+{
+  "grade": { "name": "Grade 7", "level": "Basic", "academic_year": "2081" },
+  "subject": { "name": "Mathematics", "code": "MATH7", "is_compulsory": true, "total_hours_per_year": 160 },
+  "units": [
+    {
+      "title": "Unit Name",
+      "description": "Brief description",
+      "order_index": 1,
+      "estimated_hours": 20,
+      "topics": [
+        {
+          "title": "Topic Name",
+          "description": "Brief description",
+          "order_index": 1,
+          "estimated_minutes": 45,
+          "difficulty_level": "Easy|Medium|Hard",
+          "learning_outcomes": [
+            { "outcome_text": "Student will be able to...", "bloom_level": "Remember|Understand|Apply|Analyze|Evaluate|Create", "competency_level": "Basic|Intermediate|Advanced" }
+          ],
+          "teaching_guidelines": [
+            { "guideline_text": "Use real-world examples...", "method_type": "Discussion|Activity|Demonstration|Practice|Project" }
+          ],
+          "assessment_indicators": [
+            { "indicator_text": "Can solve problems involving...", "assessment_type": "Formative|Summative|Diagnostic" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+If the grade or subject is provided by the user, use those values. Otherwise, infer from the document.
+Extract as much detail as possible. If information is missing, make reasonable inferences based on Nepal CDC standards.
+IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
+
+    const userPrompt = `${gradeName ? `Grade/Class: ${gradeName}\n` : ""}${subjectName ? `Subject: ${subjectName}\n` : ""}\n\nCDC Document Content:\n${fileContent}`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      if (response.status === 429) {
+        await supabaseClient.from("cdc_uploads").update({ status: "error", error_message: "Rate limited. Please try again later." }).eq("id", uploadId);
+        return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (response.status === 402) {
+        await supabaseClient.from("cdc_uploads").update({ status: "error", error_message: "AI credits exhausted." }).eq("id", uploadId);
+        return new Response(JSON.stringify({ error: "Payment required" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      throw new Error(`AI gateway error: ${response.status} ${errText}`);
+    }
+
+    const aiResult = await response.json();
+    const content = aiResult.choices?.[0]?.message?.content || "";
+    
+    // Parse the JSON from AI response
+    let extractedData;
+    try {
+      // Try to extract JSON from possible markdown code blocks
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
+      extractedData = JSON.parse(jsonMatch[1].trim());
+    } catch (parseErr) {
+      await supabaseClient.from("cdc_uploads").update({ 
+        status: "error", 
+        error_message: "Failed to parse AI response. Try uploading clearer content.",
+        extracted_data: { raw: content },
+      }).eq("id", uploadId);
+      return new Response(JSON.stringify({ error: "Parse error", raw: content }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Now persist the extracted curriculum to the database
+    const gradeData = extractedData.grade;
+    const subjectData = extractedData.subject;
+    const unitsData = extractedData.units || [];
+
+    // Upsert grade
+    let gradeId: string;
+    const { data: existingGrade } = await supabaseClient
+      .from("grades")
+      .select("id")
+      .eq("name", gradeData.name)
+      .maybeSingle();
+
+    if (existingGrade) {
+      gradeId = existingGrade.id;
+    } else {
+      const { data: newGrade } = await supabaseClient
+        .from("grades")
+        .insert({ name: gradeData.name, level: gradeData.level || "Basic", academic_year: gradeData.academic_year || "2081" })
+        .select("id")
+        .single();
+      gradeId = newGrade!.id;
+    }
+
+    // Upsert subject
+    let subjectId: string;
+    const { data: existingSubject } = await supabaseClient
+      .from("subjects")
+      .select("id")
+      .eq("name", subjectData.name)
+      .eq("grade_id", gradeId)
+      .maybeSingle();
+
+    if (existingSubject) {
+      subjectId = existingSubject.id;
+    } else {
+      const { data: newSubject } = await supabaseClient
+        .from("subjects")
+        .insert({ 
+          name: subjectData.name, code: subjectData.code || "", grade_id: gradeId,
+          is_compulsory: subjectData.is_compulsory ?? true, 
+          total_hours_per_year: subjectData.total_hours_per_year || null,
+        })
+        .select("id")
+        .single();
+      subjectId = newSubject!.id;
+    }
+
+    // Insert units, topics, and metadata
+    let totalTopics = 0;
+    for (const unit of unitsData) {
+      const { data: newUnit } = await supabaseClient
+        .from("units")
+        .insert({
+          subject_id: subjectId,
+          title: unit.title,
+          description: unit.description || "",
+          order_index: unit.order_index || 0,
+          estimated_hours: unit.estimated_hours || null,
+        })
+        .select("id")
+        .single();
+
+      if (!newUnit) continue;
+
+      for (const topic of (unit.topics || [])) {
+        const { data: newTopic } = await supabaseClient
+          .from("topics")
+          .insert({
+            unit_id: newUnit.id,
+            title: topic.title,
+            description: topic.description || "",
+            order_index: topic.order_index || 0,
+            estimated_minutes: topic.estimated_minutes || null,
+            difficulty_level: topic.difficulty_level || "Medium",
+          })
+          .select("id")
+          .single();
+
+        if (!newTopic) continue;
+        totalTopics++;
+
+        // Insert learning outcomes
+        const outcomes = (topic.learning_outcomes || []).map((lo: any) => ({
+          topic_id: newTopic.id,
+          outcome_text: lo.outcome_text,
+          bloom_level: lo.bloom_level || null,
+          competency_level: lo.competency_level || null,
+        }));
+        if (outcomes.length > 0) {
+          await supabaseClient.from("learning_outcomes").insert(outcomes);
+        }
+
+        // Insert teaching guidelines
+        const guidelines = (topic.teaching_guidelines || []).map((tg: any) => ({
+          topic_id: newTopic.id,
+          guideline_text: tg.guideline_text,
+          method_type: tg.method_type || null,
+        }));
+        if (guidelines.length > 0) {
+          await supabaseClient.from("teaching_guidelines").insert(guidelines);
+        }
+
+        // Insert assessment indicators
+        const indicators = (topic.assessment_indicators || []).map((ai: any) => ({
+          topic_id: newTopic.id,
+          indicator_text: ai.indicator_text,
+          assessment_type: ai.assessment_type || null,
+        }));
+        if (indicators.length > 0) {
+          await supabaseClient.from("assessment_indicators").insert(indicators);
+        }
+      }
+    }
+
+    // Update the upload record
+    await supabaseClient.from("cdc_uploads").update({
+      status: "completed",
+      extracted_data: extractedData,
+      grade_name: gradeData.name,
+      subject_name: subjectData.name,
+      processed_at: new Date().toISOString(),
+    }).eq("id", uploadId);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      grade: gradeData.name,
+      subject: subjectData.name,
+      units: unitsData.length,
+      topics: totalTopics,
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  } catch (e) {
+    console.error("analyze-cdc error:", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});

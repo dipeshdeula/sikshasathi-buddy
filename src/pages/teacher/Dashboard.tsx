@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/store';
-import { BookOpen, FileQuestion, Users, BarChart3, TrendingUp, SmilePlus } from 'lucide-react';
+import { BookOpen, FileQuestion, Users, BarChart3, TrendingUp, SmilePlus, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const StatCard = ({ icon, label, value, to, color }: { icon: React.ReactNode; label: string; value: string | number; to: string; color: string }) => (
@@ -44,7 +44,11 @@ const TeacherDashboard = () => {
 
       <div className="bg-card rounded-xl border border-border p-5 shadow-card">
         <h2 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
-        <div className="grid sm:grid-cols-3 gap-3">
+        <div className="grid sm:grid-cols-4 gap-3">
+          <Link to="/teacher/cdc-upload" className="flex items-center gap-3 bg-secondary rounded-lg p-4 hover:bg-secondary/80 transition-colors">
+            <Upload className="h-5 w-5 text-primary" />
+            <span className="text-sm font-medium text-foreground">Upload CDC</span>
+          </Link>
           <Link to="/teacher/lessons" className="flex items-center gap-3 bg-secondary rounded-lg p-4 hover:bg-secondary/80 transition-colors">
             <BookOpen className="h-5 w-5 text-primary" />
             <span className="text-sm font-medium text-foreground">New Lesson Plan</span>

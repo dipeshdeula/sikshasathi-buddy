@@ -19,6 +19,7 @@ import QuizBuilder from "./pages/teacher/QuizBuilder";
 import ResultsEntry from "./pages/teacher/ResultsEntry";
 import MasteryDashboard from "./pages/teacher/MasteryDashboard";
 import WeeklyReports from "./pages/teacher/WeeklyReports";
+import CDCUpload from "./pages/teacher/CDCUpload";
 
 // Student
 import StudentHome from "./pages/student/Home";
@@ -77,6 +78,7 @@ const AppRoutes = () => (
       <Route path="/teacher/results" element={<ProtectedRoute allowedRoles={['teacher']}><ResultsEntry /></ProtectedRoute>} />
       <Route path="/teacher/mastery" element={<ProtectedRoute allowedRoles={['teacher']}><MasteryDashboard /></ProtectedRoute>} />
       <Route path="/teacher/reports" element={<ProtectedRoute allowedRoles={['teacher']}><WeeklyReports /></ProtectedRoute>} />
+      <Route path="/teacher/cdc-upload" element={<ProtectedRoute allowedRoles={['teacher']}><CDCUpload /></ProtectedRoute>} />
 
       {/* Student routes */}
       <Route path="/student" element={<ProtectedRoute allowedRoles={['student']}><StudentHome /></ProtectedRoute>} />

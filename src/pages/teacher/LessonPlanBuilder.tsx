@@ -176,14 +176,19 @@ const LessonPlanBuilder = () => {
     const subject = subjects.find(s => s.id === subjectId);
     if (!topic || !subject) return;
     setGenerating(true);
-    const result = await aiService.generateLessonPlan({
-      subject: subject.name, topic: topic.title, unit: unit?.title || '',
-      classLevel, durationType, learningOutcomes,
-    });
-    setObjectives(result.objectives);
-    setHomework(result.homework);
-    setGenerating(false);
-    toast({ title: 'AI generated lesson plan!' });
+    try {
+      const result = await aiService.generateLessonPlan({
+        subject: subject.name, topic: topic.title, unit: unit?.title || '',
+        classLevel, durationType, learningOutcomes,
+      });
+      setObjectives(result.objectives);
+      setHomework(result.homework);
+      toast({ title: 'AI generated lesson plan!' });
+    } catch (err: any) {
+      toast({ title: 'AI Generation Failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleSaveLP = async () => {
@@ -232,17 +237,22 @@ const LessonPlanBuilder = () => {
     const subject = tgSubjects.find(s => s.id === tgSubjectId);
     if (!topic || !subject) return;
     setTgGenerating(true);
-    const result = await aiService.generateTeacherGuideline({
-      subject: subject.name, topic: topic.title, unit: unit?.title || '',
-      classLevel: 'Medium', teachingGuidelines: teachingGuidelinesData,
-      assessmentIndicators,
-    });
-    setTgTeachingScript(result.teachingScript);
-    setTgBoardwork(result.boardwork);
-    setTgReferenceLinks(result.referenceLinks);
-    setTgPresentation(result.presentationContent);
-    setTgGenerating(false);
-    toast({ title: 'AI generated teacher guideline!' });
+    try {
+      const result = await aiService.generateTeacherGuideline({
+        subject: subject.name, topic: topic.title, unit: unit?.title || '',
+        classLevel: 'Medium', teachingGuidelines: teachingGuidelinesData,
+        assessmentIndicators,
+      });
+      setTgTeachingScript(result.teachingScript);
+      setTgBoardwork(result.boardwork);
+      setTgReferenceLinks(result.referenceLinks);
+      setTgPresentation(result.presentationContent);
+      toast({ title: 'AI generated teacher guideline!' });
+    } catch (err: any) {
+      toast({ title: 'AI Generation Failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setTgGenerating(false);
+    }
   };
 
   const handleSaveTG = async () => {

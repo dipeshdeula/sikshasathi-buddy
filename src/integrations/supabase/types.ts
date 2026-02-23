@@ -84,6 +84,56 @@ export type Database = {
           },
         ]
       }
+      cdc_uploads: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          extracted_data: Json | null
+          file_name: string
+          file_path: string
+          grade_name: string | null
+          id: string
+          processed_at: string | null
+          status: string
+          subject_name: string | null
+          teacher_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          extracted_data?: Json | null
+          file_name: string
+          file_path: string
+          grade_name?: string | null
+          id?: string
+          processed_at?: string | null
+          status?: string
+          subject_name?: string | null
+          teacher_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          extracted_data?: Json | null
+          file_name?: string
+          file_path?: string
+          grade_name?: string | null
+          id?: string
+          processed_at?: string | null
+          status?: string
+          subject_name?: string | null
+          teacher_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdc_uploads_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_students: {
         Row: {
           class_id: string
