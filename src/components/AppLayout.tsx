@@ -5,12 +5,13 @@ import OfflineBanner from './OfflineBanner';
 import {
   LayoutDashboard, BookOpen, FileQuestion, ClipboardList, BarChart3,
   FileText, Bell, Users, LogOut, Menu, X, GraduationCap,
-  SmilePlus, TrendingUp, Home, Bot, ChevronRight,
+  SmilePlus, TrendingUp, Home, Bot, ChevronRight, Upload,
 } from 'lucide-react';
 
 const navItems: Record<string, { label: string; icon: ReactNode; path: string }[]> = {
   teacher: [
     { label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, path: '/teacher' },
+    { label: 'CDC Upload', icon: <Upload className="h-5 w-5" />, path: '/teacher/cdc-upload' },
     { label: 'Lesson Plans', icon: <BookOpen className="h-5 w-5" />, path: '/teacher/lessons' },
     { label: 'Quizzes', icon: <FileQuestion className="h-5 w-5" />, path: '/teacher/quizzes' },
     { label: 'Results Entry', icon: <ClipboardList className="h-5 w-5" />, path: '/teacher/results' },
