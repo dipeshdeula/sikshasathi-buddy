@@ -60,7 +60,7 @@ const StudentProgress = () => {
       )}
 
       {subjects.map(subj => {
-        const subTopics = topics.filter(t => t.subjectId === subj.id);
+        const subTopics = topics.filter(t => t.unitId === subj.id);
         return (
           <div key={subj.id} className="bg-card rounded-xl border border-border p-5 shadow-card">
             <h2 className="text-lg font-semibold text-foreground mb-4">{subj.name}</h2>
@@ -71,7 +71,7 @@ const StudentProgress = () => {
                 return (
                   <div key={t.id}>
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm text-foreground">{t.name}</span>
+                      <span className="text-sm text-foreground">{t.title}</span>
                       <span className={`text-sm font-medium ${score >= 80 ? 'text-success' : score >= 50 ? 'text-accent' : 'text-destructive'}`}>{score}%</span>
                     </div>
                     <Progress value={score} className="h-2" />

@@ -38,7 +38,7 @@ const MasteryDashboard = () => {
             {topicAvgs.map(t => (
               <div key={t.id}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-foreground">{t.name}</span>
+                  <span className="text-sm text-foreground">{t.title}</span>
                   <span className={`text-sm font-medium ${t.weak ? 'text-destructive' : 'text-success'}`}>{t.avg}%</span>
                 </div>
                 <Progress value={t.avg} className="h-2" />

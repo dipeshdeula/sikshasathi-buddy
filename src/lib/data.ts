@@ -1,46 +1,110 @@
-// SikshaSathi Data Types (Supabase-backed)
+// SikshaSathi Data Types (Supabase-backed, normalized curriculum)
 
 export type Role = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
 
 export interface AppUser {
   id: string;
-  name: string;       // mapped from profiles.full_name
+  name: string;
   email: string;
   role: Role;
+}
+
+export interface Grade {
+  id: string;
+  name: string;
+  level: string;
+  academicYear: string;
+  isActive: boolean;
+}
+
+export interface Subject {
+  id: string;
+  gradeId: string;
+  name: string;
+  code: string;
+  totalHoursPerYear: number | null;
+  isCompulsory: boolean;
+}
+
+export interface Unit {
+  id: string;
+  subjectId: string;
+  title: string;
+  description: string;
+  orderIndex: number;
+  estimatedHours: number | null;
+}
+
+export interface Topic {
+  id: string;
+  unitId: string;
+  title: string;
+  description: string;
+  orderIndex: number;
+  estimatedMinutes: number | null;
+  difficultyLevel: string;
+}
+
+export interface LearningOutcome {
+  id: string;
+  topicId: string;
+  outcomeText: string;
+  competencyLevel: string | null;
+  bloomLevel: string | null;
+}
+
+export interface TeachingGuideline {
+  id: string;
+  topicId: string;
+  guidelineText: string;
+  methodType: string | null;
+}
+
+export interface AssessmentIndicator {
+  id: string;
+  topicId: string;
+  indicatorText: string;
+  assessmentType: string | null;
+}
+
+export interface LessonPlan {
+  id: string;
+  teacherId: string;
+  topicId: string;
+  durationType: string;
+  classLevel: string;
+  objectives: string;
+  homework: string;
+  generatedByAi: boolean;
+  createdAt: string;
+  updatedAt: string;
+  // Joined data for display
+  topicTitle?: string;
+  unitTitle?: string;
+  subjectName?: string;
+}
+
+export interface TeacherGuidelineEntry {
+  id: string;
+  teacherId: string;
+  topicId: string;
+  teachingScript: string;
+  boardwork: string;
+  referenceLinks: string;
+  presentationContent: string;
+  generatedByAi: boolean;
+  createdAt: string;
+  updatedAt: string;
+  topicTitle?: string;
+  unitTitle?: string;
+  subjectName?: string;
 }
 
 export interface ClassRoom {
   id: string;
   name: string;
-  grade: number;
+  gradeId: string;
   teacherId: string;
-}
-
-export interface Subject {
-  id: string;
-  name: string;
-}
-
-export interface Topic {
-  id: string;
-  subjectId: string;
-  grade: number;
-  name: string;
-  cdcTag: string;
-}
-
-export interface LessonPlan {
-  id: string;
-  classId: string;
-  topicId: string;
-  level: 'Low' | 'Medium' | 'High';
-  durationMinutes: number;
-  objectives: string;
-  script: string;
-  boardwork: string;
-  homework: string;
-  createdBy: string;
-  createdAt: string;
 }
 
 export interface Quiz {
@@ -120,68 +184,86 @@ export interface AuditLog {
   metadataJson?: Record<string, any>;
 }
 
-// Mappers: Supabase snake_case → App camelCase
-export const mapClassRoom = (row: any): ClassRoom => ({
-  id: row.id, name: row.name, grade: row.grade, teacherId: row.teacher_id,
+// Mappers
+export const mapGrade = (r: any): Grade => ({
+  id: r.id, name: r.name, level: r.level, academicYear: r.academic_year || '', isActive: r.is_active ?? true,
 });
-
-export const mapSubject = (row: any): Subject => ({ id: row.id, name: row.name });
-
-export const mapTopic = (row: any): Topic => ({
-  id: row.id, subjectId: row.subject_id, grade: row.grade, name: row.name, cdcTag: row.cdc_tag || '',
+export const mapSubject = (r: any): Subject => ({
+  id: r.id, gradeId: r.grade_id || '', name: r.name, code: r.code || '',
+  totalHoursPerYear: r.total_hours_per_year, isCompulsory: r.is_compulsory ?? true,
 });
-
-export const mapLessonPlan = (row: any): LessonPlan => ({
-  id: row.id, classId: row.class_id, topicId: row.topic_id, level: row.level,
-  durationMinutes: row.duration_minutes, objectives: row.objectives || '',
-  script: row.script || '', boardwork: row.boardwork || '', homework: row.homework || '',
-  createdBy: row.created_by, createdAt: row.created_at,
+export const mapUnit = (r: any): Unit => ({
+  id: r.id, subjectId: r.subject_id || '', title: r.title, description: r.description || '',
+  orderIndex: r.order_index || 0, estimatedHours: r.estimated_hours,
 });
-
-export const mapQuiz = (row: any): Quiz => ({
-  id: row.id, classId: row.class_id, topicId: row.topic_id, title: row.title,
-  createdBy: row.created_by, createdAt: row.created_at,
+export const mapTopic = (r: any): Topic => ({
+  id: r.id, unitId: r.unit_id || '', title: r.title, description: r.description || '',
+  orderIndex: r.order_index || 0, estimatedMinutes: r.estimated_minutes,
+  difficultyLevel: r.difficulty_level || 'Medium',
 });
-
-export const mapQuizQuestion = (row: any): QuizQuestion => ({
-  id: row.id, quizId: row.quiz_id, qtype: row.qtype, difficulty: row.difficulty,
-  prompt: row.prompt, optionsJson: row.options_json || [], answerKey: row.answer_key || '',
-  explanation: row.explanation || '',
+export const mapLearningOutcome = (r: any): LearningOutcome => ({
+  id: r.id, topicId: r.topic_id || '', outcomeText: r.outcome_text,
+  competencyLevel: r.competency_level, bloomLevel: r.bloom_level,
 });
-
-export const mapQuizAttempt = (row: any): QuizAttempt => ({
-  id: row.id, quizId: row.quiz_id, studentId: row.student_id,
-  submittedAt: row.submitted_at, score: row.score, answersJson: row.answers_json || {},
+export const mapTeachingGuideline = (r: any): TeachingGuideline => ({
+  id: r.id, topicId: r.topic_id || '', guidelineText: r.guideline_text, methodType: r.method_type,
 });
-
-export const mapMastery = (row: any): MasteryState => ({
-  id: row.id, studentId: row.student_id, topicId: row.topic_id,
-  masteryScore: row.mastery_score, updatedAt: row.updated_at,
+export const mapAssessmentIndicator = (r: any): AssessmentIndicator => ({
+  id: r.id, topicId: r.topic_id || '', indicatorText: r.indicator_text, assessmentType: r.assessment_type,
 });
-
-export const mapCheckin = (row: any): StudentCheckin => ({
-  id: row.id, studentId: row.student_id, classId: row.class_id,
-  date: row.date, happinessScore: row.happiness_score, comment: row.comment || '',
+export const mapLessonPlan = (r: any): LessonPlan => ({
+  id: r.id, teacherId: r.teacher_id || '', topicId: r.topic_id || '',
+  durationType: r.duration_type || 'Daily', classLevel: r.class_level || 'Medium',
+  objectives: r.objectives || '', homework: r.homework || '',
+  generatedByAi: r.generated_by_ai ?? false,
+  createdAt: r.created_at || '', updatedAt: r.updated_at || '',
 });
-
-export const mapReport = (row: any): WeeklyReport => ({
-  id: row.id, classId: row.class_id, studentId: row.student_id,
-  weekStart: row.week_start, reportText: row.report_text || '',
-  interventionsText: row.interventions_text || '', status: row.status,
-  approvedBy: row.approved_by, sentAt: row.sent_at,
+export const mapTeacherGuidelineEntry = (r: any): TeacherGuidelineEntry => ({
+  id: r.id, teacherId: r.teacher_id || '', topicId: r.topic_id || '',
+  teachingScript: r.teaching_script || '', boardwork: r.boardwork || '',
+  referenceLinks: r.reference_links || '', presentationContent: r.presentation_content || '',
+  generatedByAi: r.generated_by_ai ?? false,
+  createdAt: r.created_at || '', updatedAt: r.updated_at || '',
 });
-
-export const mapNotification = (row: any): Notification => ({
-  id: row.id, userId: row.user_id, type: row.type || '',
-  message: row.message || '', createdAt: row.created_at, readAt: row.read_at,
+export const mapClassRoom = (r: any): ClassRoom => ({
+  id: r.id, name: r.name, gradeId: r.grade_id || '', teacherId: r.teacher_id || '',
 });
-
-export const mapAuditLog = (row: any): AuditLog => ({
-  id: row.id, actorUserId: row.actor_user_id, action: row.action,
-  entityType: row.entity_type || '', entityId: row.entity_id || '',
-  createdAt: row.created_at, metadataJson: row.metadata_json,
+export const mapQuiz = (r: any): Quiz => ({
+  id: r.id, classId: r.class_id || '', topicId: r.topic_id || '', title: r.title,
+  createdBy: r.created_by || '', createdAt: r.created_at || '',
 });
-
-export const mapProfile = (row: any): { id: string; name: string; email?: string } => ({
-  id: row.id, name: row.full_name || '',
+export const mapQuizQuestion = (r: any): QuizQuestion => ({
+  id: r.id, quizId: r.quiz_id || '', qtype: r.qtype, difficulty: r.difficulty,
+  prompt: r.prompt, optionsJson: r.options_json || [], answerKey: r.answer_key || '',
+  explanation: r.explanation || '',
+});
+export const mapQuizAttempt = (r: any): QuizAttempt => ({
+  id: r.id, quizId: r.quiz_id || '', studentId: r.student_id || '',
+  submittedAt: r.submitted_at || '', score: r.score || 0, answersJson: r.answers_json || {},
+});
+export const mapMastery = (r: any): MasteryState => ({
+  id: r.id, studentId: r.student_id || '', topicId: r.topic_id || '',
+  masteryScore: r.mastery_score || 0, updatedAt: r.updated_at || '',
+});
+export const mapCheckin = (r: any): StudentCheckin => ({
+  id: r.id, studentId: r.student_id || '', classId: r.class_id || '',
+  date: r.date, happinessScore: r.happiness_score, comment: r.comment || '',
+});
+export const mapReport = (r: any): WeeklyReport => ({
+  id: r.id, classId: r.class_id || '', studentId: r.student_id || '',
+  weekStart: r.week_start, reportText: r.report_text || '',
+  interventionsText: r.interventions_text || '', status: r.status,
+  approvedBy: r.approved_by, sentAt: r.sent_at,
+});
+export const mapNotification = (r: any): Notification => ({
+  id: r.id, userId: r.user_id || '', type: r.type || '',
+  message: r.message || '', createdAt: r.created_at || '', readAt: r.read_at,
+});
+export const mapAuditLog = (r: any): AuditLog => ({
+  id: r.id, actorUserId: r.actor_user_id || '', action: r.action,
+  entityType: r.entity_type || '', entityId: r.entity_id || '',
+  createdAt: r.created_at || '', metadataJson: r.metadata_json,
+});
+export const mapProfile = (r: any): { id: string; name: string } => ({
+  id: r.id, name: r.full_name || '',
 });

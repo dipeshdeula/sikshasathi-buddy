@@ -49,7 +49,7 @@ const ParentSnapshot = () => {
             return (
               <div key={t.id}>
                 <div className="flex justify-between mb-1">
-                  <span className="text-sm text-foreground">{t.name}</span>
+                  <span className="text-sm text-foreground">{t.title}</span>
                   <span className="text-sm text-muted-foreground">{m?.masteryScore || 0}%</span>
                 </div>
                 <Progress value={m?.masteryScore || 0} className="h-2" />

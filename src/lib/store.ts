@@ -1,23 +1,23 @@
-import { supabase } from './supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import {
   LessonPlan, Quiz, QuizQuestion, QuizAttempt, WeeklyReport,
-  Notification, AuditLog, MasteryState, StudentCheckin, ClassRoom, Subject, Topic,
+  Notification, AuditLog, MasteryState, StudentCheckin, ClassRoom, Subject, Topic, Grade, Unit,
   mapClassRoom, mapSubject, mapTopic, mapLessonPlan, mapQuiz, mapQuizQuestion,
-  mapQuizAttempt, mapMastery, mapCheckin, mapReport, mapNotification, mapAuditLog, mapProfile,
+  mapQuizAttempt, mapMastery, mapCheckin, mapReport, mapNotification, mapAuditLog, mapProfile, mapGrade, mapUnit,
 } from './data';
 
-// ---- localStorage helpers (offline cache) ----
 const save = (key: string, data: any) => localStorage.setItem(`siksha_${key}`, JSON.stringify(data));
 const load = <T>(key: string): T[] => {
   try { return JSON.parse(localStorage.getItem(`siksha_${key}`) || '[]'); } catch { return []; }
 };
 
-// ---- Supabase Sync ----
 export async function syncFromSupabase() {
   if (!navigator.onLine) return;
   try {
-    const [subjects, topics, classes, classStudents, parentLinks, lessonPlans, quizzes, quizQuestions, attempts, mastery, checkins, reports, notifications, auditLogs, profiles] = await Promise.all([
+    const [grades, subjects, units, topics, classes, classStudents, parentLinks, lessonPlans, quizzes, quizQuestions, attempts, mastery, checkins, reports, notifications, auditLogs, profiles] = await Promise.all([
+      supabase.from('grades').select('*'),
       supabase.from('subjects').select('*'),
+      supabase.from('units').select('*'),
       supabase.from('topics').select('*'),
       supabase.from('classes').select('*'),
       supabase.from('class_students').select('*'),
@@ -33,8 +33,9 @@ export async function syncFromSupabase() {
       supabase.from('audit_logs').select('*'),
       supabase.from('profiles').select('*'),
     ]);
-
+    if (grades.data) save('grades', grades.data.map(mapGrade));
     if (subjects.data) save('subjects', subjects.data.map(mapSubject));
+    if (units.data) save('units', units.data.map(mapUnit));
     if (topics.data) save('topics', topics.data.map(mapTopic));
     if (classes.data) save('classes', classes.data.map(mapClassRoom));
     if (classStudents.data) save('class_students', classStudents.data);
@@ -54,13 +55,13 @@ export async function syncFromSupabase() {
   }
 }
 
-// ---- Synchronous DB interface (reads from localStorage cache) ----
 export const db = {
   users: {
     getAll: () => load<{ id: string; name: string }>('profiles'),
     getById: (id: string) => load<{ id: string; name: string }>('profiles').find(u => u.id === id),
-    getByRole: (_role: string) => load<{ id: string; name: string }>('profiles'), // filtered server-side by RLS
+    getByRole: (_role: string) => load<{ id: string; name: string }>('profiles'),
   },
+  grades: { getAll: () => load<Grade>('grades') },
   classes: {
     getAll: () => load<ClassRoom>('classes'),
     getById: (id: string) => load<ClassRoom>('classes').find(c => c.id === id),
@@ -70,9 +71,8 @@ export const db = {
       const profiles = load<{ id: string; name: string }>('profiles');
       return links.map(l => profiles.find(u => u.id === l.student_id)).filter(Boolean);
     },
-    // Async CRUD for Supabase
-    async create(c: { name: string; grade: number; teacherId: string }) {
-      const { data } = await supabase.from('classes').insert({ name: c.name, grade: c.grade, teacher_id: c.teacherId }).select().single();
+    async create(c: { name: string; gradeId: string; teacherId: string }) {
+      const { data } = await supabase.from('classes').insert({ name: c.name, grade_id: c.gradeId, teacher_id: c.teacherId }).select().single();
       if (data) { const all = load<ClassRoom>('classes'); all.push(mapClassRoom(data)); save('classes', all); }
       return data;
     },
@@ -82,22 +82,17 @@ export const db = {
     },
   },
   subjects: { getAll: () => load<Subject>('subjects') },
+  units: {
+    getAll: () => load<Unit>('units'),
+    getBySubject: (subjectId: string) => load<Unit>('units').filter(u => u.subjectId === subjectId),
+  },
   topics: {
     getAll: () => load<Topic>('topics'),
-    getBySubject: (subjectId: string) => load<Topic>('topics').filter(t => t.subjectId === subjectId),
+    getByUnit: (unitId: string) => load<Topic>('topics').filter(t => t.unitId === unitId),
   },
   lessonPlans: {
     getAll: () => load<LessonPlan>('lesson_plans'),
-    getByClass: (classId: string) => load<LessonPlan>('lesson_plans').filter(lp => lp.classId === classId),
-    create: (lp: LessonPlan) => {
-      const all = load<LessonPlan>('lesson_plans'); all.push(lp); save('lesson_plans', all);
-      // Async write to Supabase
-      supabase.from('lesson_plans').insert({
-        id: lp.id, class_id: lp.classId, topic_id: lp.topicId, level: lp.level,
-        duration_minutes: lp.durationMinutes, objectives: lp.objectives, script: lp.script,
-        boardwork: lp.boardwork, homework: lp.homework, created_by: lp.createdBy,
-      }).then(() => {});
-    },
+    getByTeacher: (teacherId: string) => load<LessonPlan>('lesson_plans').filter(lp => lp.teacherId === teacherId),
   },
   quizzes: {
     getAll: () => load<Quiz>('quizzes'),
@@ -145,12 +140,8 @@ export const db = {
       const idx = all.findIndex(m => m.studentId === studentId && m.topicId === topicId);
       const now = new Date().toISOString();
       if (idx >= 0) { all[idx].masteryScore = score; all[idx].updatedAt = now; }
-      else {
-        const id = crypto.randomUUID();
-        all.push({ id, studentId, topicId, masteryScore: score, updatedAt: now });
-      }
+      else { all.push({ id: crypto.randomUUID(), studentId, topicId, masteryScore: score, updatedAt: now }); }
       save('mastery', all);
-      // Upsert to Supabase
       supabase.from('mastery_states').upsert({
         student_id: studentId, topic_id: topicId, mastery_score: score, updated_at: now,
       }, { onConflict: 'student_id,topic_id' }).then(() => {});

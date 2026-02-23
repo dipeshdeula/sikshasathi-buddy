@@ -25,7 +25,7 @@ const WeeklyReports = () => {
       const scores: Record<string, number> = {};
       mastery.forEach(m => {
         const t = topics.find(tp => tp.id === m.topicId);
-        if (t) scores[t.name] = m.masteryScore;
+        if (t) scores[t.title] = m.masteryScore;
       });
 
       const result = await aiService.generateWeeklyReport({ studentName: s.name, masteryScores: scores });
