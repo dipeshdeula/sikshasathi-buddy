@@ -44,13 +44,19 @@ export function useTeacherClasses(teacherId?: string) {
 
 // Class students
 export function useClassStudents(classId?: string) {
-  return useSupabaseQuery<{ id: string; name: string }>(async () => {
+  return useSupabaseQuery<{ id: string; name: string; isVerified: boolean; classLevel: string | null; section: string | null }>(async () => {
     if (!classId) return [];
     const { data } = await supabase
       .from('class_students')
-      .select('student_id, profiles!class_students_student_id_fkey(id, full_name)')
+      .select('student_id, profiles!class_students_student_id_fkey(id, full_name, is_verified, preferred_class_level, preferred_section)')
       .eq('class_id', classId);
-    return (data || []).map((d: any) => ({ id: d.profiles.id, name: d.profiles.full_name }));
+    return (data || []).map((d: any) => ({
+      id: d.profiles.id,
+      name: d.profiles.full_name,
+      isVerified: d.profiles.is_verified ?? false,
+      classLevel: d.profiles.preferred_class_level,
+      section: d.profiles.preferred_section,
+    }));
   }, [classId]);
 }
 

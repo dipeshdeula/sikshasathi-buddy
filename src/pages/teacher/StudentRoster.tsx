@@ -230,7 +230,14 @@ const StudentRoster = () => {
     setEditSection(s.preferred_section || '');
   };
 
-  const filtered = students.filter((s: any) => s.name.toLowerCase().includes(search.toLowerCase()));
+  // Combine enrolled students + pending (unassigned) students
+  const allStudents = [
+    ...students.map((s: any) => ({ ...s, source: 'enrolled' as const })),
+    ...pendingStudents
+      .filter(ps => !students.some((s: any) => s.id === ps.id))
+      .map(ps => ({ id: ps.id, name: ps.name, isVerified: ps.is_verified, classLevel: ps.preferred_class_level, section: ps.preferred_section, source: 'pending' as const })),
+  ];
+  const filtered = allStudents.filter((s: any) => s.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -253,63 +260,10 @@ const StudentRoster = () => {
             ) : (
               <span className="text-sm font-medium text-foreground">{classes[0]?.name}</span>
             )}
-            <Badge variant="secondary">{students.length} students enrolled</Badge>
-          </div>
-        </div>
-      )}
-
-      {/* Pending Verification */}
-      {pendingStudents.length > 0 && (
-        <div className="bg-card rounded-xl border border-border p-5 shadow-card space-y-3">
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-warning" /> Pending Verification ({pendingStudents.length})
-          </h2>
-          <p className="text-xs text-muted-foreground">Assign class level &amp; section, then verify and add students to your class.</p>
-          <div className="space-y-3">
-            {pendingStudents.map(s => {
-              const sel = pendingSelections[s.id] || { classLevel: '', section: '' };
-              return (
-                <div key={s.id} className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
-                  {/* Name */}
-                  <div className="flex items-center gap-2 min-w-[140px]">
-                    <div className="h-8 w-8 rounded-full bg-warning/10 text-warning flex items-center justify-center text-xs font-bold shrink-0">{s.name.charAt(0)}</div>
-                    <span className="font-medium text-sm text-foreground">{s.name}</span>
-                  </div>
-
-                  {/* Class Level Dropdown */}
-                  <Select
-                    value={sel.classLevel}
-                    onValueChange={v => setPendingSelections(prev => ({ ...prev, [s.id]: { ...prev[s.id], classLevel: v, section: prev[s.id]?.section || '' } }))}
-                  >
-                    <SelectTrigger className="w-32 h-8 text-xs bg-card"><SelectValue placeholder="Class Level" /></SelectTrigger>
-                    <SelectContent className="bg-card border border-border z-50">
-                      {CLASS_LEVELS.map(l => <SelectItem key={l} value={l}>Class {l}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Section Dropdown */}
-                  <Select
-                    value={sel.section}
-                    onValueChange={v => setPendingSelections(prev => ({ ...prev, [s.id]: { classLevel: prev[s.id]?.classLevel || '', section: v } }))}
-                  >
-                    <SelectTrigger className="w-32 h-8 text-xs bg-card"><SelectValue placeholder="Section" /></SelectTrigger>
-                    <SelectContent className="bg-card border border-border z-50">
-                      {SECTIONS.map(sec => <SelectItem key={sec} value={sec}>Section {sec}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 ml-auto">
-                    <Button size="sm" variant="outline" onClick={() => handleVerifyStudent(s.id)} title="Verify only">
-                      <CheckCircle className="h-3.5 w-3.5 mr-1 text-success" /> Verify
-                    </Button>
-                    <Button size="sm" variant="default" onClick={() => handleAddToClass(s.id)} title="Verify and add to selected class">
-                      <UserPlus className="h-3.5 w-3.5 mr-1" /> Add to Class
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+            <Badge variant="secondary">{students.length} enrolled</Badge>
+            {pendingStudents.filter(ps => !students.some((s: any) => s.id === ps.id)).length > 0 && (
+              <Badge variant="outline" className="text-warning border-warning">{pendingStudents.filter(ps => !students.some((s: any) => s.id === ps.id)).length} pending</Badge>
+            )}
           </div>
         </div>
       )}
@@ -333,6 +287,9 @@ const StudentRoster = () => {
               <TableRow>
                 <TableHead>#</TableHead>
                 <TableHead>Student</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Level</TableHead>
+                <TableHead>Section</TableHead>
                 <TableHead>Mastery</TableHead>
                 <TableHead>Quizzes</TableHead>
                 <TableHead>Challenges</TableHead>
@@ -343,15 +300,23 @@ const StudentRoster = () => {
             <TableBody>
               {filtered.map((s: any, i: number) => {
                 const m = getStudentMetrics(s.id, s.name);
+                const isPending = !s.isVerified;
                 return (
-                  <TableRow key={s.id}>
+                  <TableRow key={s.id} className={isPending ? 'bg-warning/5' : ''}>
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">{s.name.charAt(0)}</div>
+                        <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold ${isPending ? 'bg-warning/10 text-warning' : 'bg-primary/10 text-primary'}`}>{s.name.charAt(0)}</div>
                         <span className="font-medium text-sm">{s.name}</span>
                       </div>
                     </TableCell>
+                    <TableCell>
+                      {s.isVerified
+                        ? <Badge variant="default" className="text-[10px]"><CheckCircle className="h-3 w-3 mr-1" />Verified</Badge>
+                        : <Badge variant="outline" className="text-[10px] text-warning border-warning"><XCircle className="h-3 w-3 mr-1" />Pending</Badge>}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{s.classLevel || '—'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{s.section || '—'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Progress value={m.avgMastery} className="h-1.5 w-16" />
@@ -364,6 +329,15 @@ const StudentRoster = () => {
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="sm" onClick={() => setShowView(m)} title="View details"><Eye className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit({ id: s.id, name: s.name, is_verified: s.isVerified, preferred_class_level: s.classLevel, preferred_section: s.section })} title="Edit"><Pencil className="h-3 w-3" /></Button>
+                        {isPending && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => handleVerifyStudent(s.id)} title="Verify"><ShieldCheck className="h-3 w-3 text-success" /></Button>
+                            {s.source === 'pending' && (
+                              <Button variant="ghost" size="sm" onClick={() => handleAddToClass(s.id)} title="Add to class"><UserPlus className="h-3 w-3 text-primary" /></Button>
+                            )}
+                          </>
+                        )}
                         <Button variant="ghost" size="sm" onClick={() => handleRemoveStudent(s.id)} title="Remove"><Trash2 className="h-3 w-3 text-destructive" /></Button>
                       </div>
                     </TableCell>
@@ -398,7 +372,7 @@ const StudentRoster = () => {
               </Select>
             </div>
             <p className="text-xs text-muted-foreground">Student will be auto-verified and added to the selected class.</p>
-            <Button onClick={handleCreateStudent} className="w-full" disabled={creating}>{creating ? 'Creating…' : 'Create & Add to Class'}</Button>
+            <Button onClick={handleCreateStudent} className="w-full" disabled={creating}>{creating ? 'Creating…' : 'Create New Student'}</Button>
           </div>
         </DialogContent>
       </Dialog>
