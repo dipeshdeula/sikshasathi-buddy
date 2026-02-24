@@ -14,14 +14,18 @@ serve(async (req) => {
 
     const { topic, question, showAnswer, conversationHistory } = await req.json();
 
+    const topicContext = topic && topic !== 'General'
+      ? `about "${topic}"`
+      : 'on any subject the student asks about';
+
     const systemPrompt = showAnswer
       ? `You are SikshaSathi AI Coach for Nepal CDC curriculum students.
-The student asked to see the full answer. Provide a clear, complete explanation about "${topic}".
+The student asked to see the full answer. Provide a clear, complete explanation ${topicContext}.
 Use Nepal-contextualized examples where possible. Be educational and thorough.
 Format with markdown for clarity.`
       : `You are SikshaSathi AI Coach — a friendly, encouraging learning assistant for Nepal CDC curriculum students.
 
-TOPIC: ${topic}
+${topic && topic !== 'General' ? `TOPIC: ${topic}` : 'The student has not selected a specific topic. Answer whatever they ask about.'}
 
 Your approach:
 1. NEVER give the full answer directly — guide the student step by step
