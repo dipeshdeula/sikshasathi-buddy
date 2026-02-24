@@ -261,22 +261,23 @@ const StudentRoster = () => {
 
   const handleEditStudent = async () => {
     if (!showEdit) return;
-    const updates: any = {};
-    if (editName.trim()) updates.full_name = editName.trim();
-    if (editClassLevel) updates.preferred_class_level = editClassLevel;
-    if (editSection) updates.preferred_section = editSection;
+    const updates: Record<string, string> = {};
+    if (editName.trim() && editName.trim() !== showEdit.name) updates.full_name = editName.trim();
+    // Always set these — even if unchanged — so the value persists
+    updates.preferred_class_level = editClassLevel || null as any;
+    updates.preferred_section = editSection || null as any;
     
     const { error } = await supabase.from("profiles").update(updates).eq("id", showEdit.id);
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error updating profile", description: error.message, variant: "destructive" });
       return;
     }
 
     // If class level or section changed, try to move student to matching class
-    if (editClassLevel || editSection) {
-      // Find a class matching the new level+section owned by this teacher
-      const matchQuery = supabase.from("classes").select("id").eq("teacher_id", user?.id);
-      if (editClassLevel) matchQuery.eq("class_level", editClassLevel);
+    const levelChanged = editClassLevel !== (showEdit.preferred_class_level || "");
+    const sectionChanged = editSection !== (showEdit.preferred_section || "");
+    if ((levelChanged || sectionChanged) && editClassLevel) {
+      const matchQuery = supabase.from("classes").select("id").eq("teacher_id", user?.id).eq("class_level", editClassLevel);
       if (editSection) matchQuery.eq("section", editSection);
       const { data: matchingClasses } = await matchQuery.limit(1);
       
@@ -284,13 +285,12 @@ const StudentRoster = () => {
         const newClassId = matchingClasses[0].id;
         if (classId && classId !== newClassId) {
           await supabase.from("class_students").delete().eq("class_id", classId).eq("student_id", showEdit.id);
-          // Add to new class
           await supabase.from("class_students").insert({ class_id: newClassId, student_id: showEdit.id });
         }
       }
     }
 
-    toast({ title: "Student updated" });
+    toast({ title: "Student updated successfully!" });
     setShowEdit(null);
     refetchStudents();
     fetchAllStudents();
