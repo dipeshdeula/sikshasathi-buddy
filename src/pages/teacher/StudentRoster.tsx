@@ -13,8 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Users, Search, Eye, Trash2, UserPlus, BarChart3, SmilePlus, Trophy, CheckCircle, XCircle, Pencil, ShieldCheck, BookOpen } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
-const CLASS_LEVELS = ['1', '2', '3'];
-const SECTIONS = ['A', 'B', 'C'];
+const CLASS_LEVELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+const SECTIONS = ['A', 'B', 'C', 'D'];
 
 interface PendingStudent {
   id: string;
