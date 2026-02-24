@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useTeacherClasses, useClassStudents, useClassReports, useClassMastery, useClassCheckins, useTopics } from '@/hooks/use-supabase-data';
-import { aiService } from '@/lib/ai-service';
+import { useTeacherClasses, useClassStudents, useClassMastery, useClassCheckins, useTopics } from '@/hooks/use-supabase-data';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles, Check, Send, Loader2, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart3, Smile } from 'lucide-react';
+import { Download, Loader2, BarChart3, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 
 const WeeklyReports = () => {
@@ -16,116 +16,144 @@ const WeeklyReports = () => {
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const classId = selectedClassId || classes[0]?.id || '';
   const { data: students, loading: studentsLoading } = useClassStudents(classId);
-  const { data: reports, refetch: refetchReports, loading: reportsLoading } = useClassReports(classId);
   const { data: mastery } = useClassMastery(classId);
   const { data: checkins } = useClassCheckins(classId);
   const { data: topics } = useTopics();
-  const [generating, setGenerating] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (!selectedClassId && classes.length > 0) {
     setSelectedClassId(classes[0].id);
   }
 
-  // Build per-student performance data
-  const getStudentPerformance = (studentId: string) => {
-    const studentMastery = mastery.filter(m => m.studentId === studentId);
-    const avgMastery = studentMastery.length > 0
-      ? studentMastery.reduce((sum, m) => sum + m.masteryScore, 0) / studentMastery.length
-      : 0;
-    const topicScores = studentMastery.map(m => {
-      const topic = topics.find(t => t.id === m.topicId);
-      return { topicTitle: topic?.title || 'Unknown', score: m.masteryScore };
-    }).sort((a, b) => b.score - a.score);
-    const weakTopics = topicScores.filter(t => t.score < 50);
-    const strongTopics = topicScores.filter(t => t.score >= 75);
+  // Build per-student report rows from real data
+  const reportRows = useMemo(() => {
+    return students.map(s => {
+      const studentMastery = mastery.filter(m => m.studentId === s.id);
+      const avgMastery = studentMastery.length > 0
+        ? Math.round(studentMastery.reduce((sum, m) => sum + m.masteryScore, 0) / studentMastery.length)
+        : 0;
 
-    const studentCheckins = checkins.filter(c => c.studentId === studentId);
-    const avgHappiness = studentCheckins.length > 0
-      ? studentCheckins.reduce((sum, c) => sum + c.happinessScore, 0) / studentCheckins.length
+      const strongTopics = studentMastery
+        .filter(m => m.masteryScore >= 75)
+        .map(m => topics.find(t => t.id === m.topicId)?.title || '')
+        .filter(Boolean);
+
+      const weakTopics = studentMastery
+        .filter(m => m.masteryScore < 50)
+        .map(m => topics.find(t => t.id === m.topicId)?.title || '')
+        .filter(Boolean);
+
+      const studentCheckins = checkins.filter(c => c.studentId === s.id);
+      const avgHappiness = studentCheckins.length > 0
+        ? Number((studentCheckins.reduce((sum, c) => sum + c.happinessScore, 0) / studentCheckins.length).toFixed(1))
+        : null;
+
+      const topicsCompleted = studentMastery.filter(m => m.masteryScore >= 70).length;
+
+      const status = avgMastery >= 75 ? 'Excellent' : avgMastery >= 50 ? 'Good' : avgMastery > 0 ? 'Needs Support' : 'No Data';
+
+      return {
+        id: s.id,
+        name: s.name,
+        avgMastery,
+        avgHappiness,
+        topicsCompleted,
+        totalTopics: studentMastery.length,
+        strongTopics,
+        weakTopics,
+        status,
+        classLevel: s.classLevel,
+        section: s.section,
+      };
+    }).sort((a, b) => a.avgMastery - b.avgMastery);
+  }, [students, mastery, checkins, topics]);
+
+  // Class summary
+  const summary = useMemo(() => {
+    if (reportRows.length === 0) return null;
+    const avgMastery = Math.round(reportRows.reduce((s, r) => s + r.avgMastery, 0) / reportRows.length);
+    const withHappiness = reportRows.filter(r => r.avgHappiness !== null);
+    const avgHappiness = withHappiness.length > 0
+      ? Number((withHappiness.reduce((s, r) => s + (r.avgHappiness || 0), 0) / withHappiness.length).toFixed(1))
       : null;
+    const needsSupport = reportRows.filter(r => r.avgMastery < 50).length;
+    const excellent = reportRows.filter(r => r.avgMastery >= 75).length;
+    return { avgMastery, avgHappiness, needsSupport, excellent, total: reportRows.length };
+  }, [reportRows]);
 
-    return { avgMastery, topicScores, weakTopics, strongTopics, avgHappiness, totalTopics: studentMastery.length };
-  };
-
-  // Class-level summary
-  const classSummary = (() => {
-    if (students.length === 0) return null;
-    const perfs = students.map(s => getStudentPerformance(s.id));
-    const avgMastery = perfs.reduce((s, p) => s + p.avgMastery, 0) / perfs.length;
-    const happinessScores = perfs.filter(p => p.avgHappiness !== null);
-    const avgHappiness = happinessScores.length > 0
-      ? happinessScores.reduce((s, p) => s + (p.avgHappiness || 0), 0) / happinessScores.length
-      : null;
-    const atRisk = perfs.filter(p => p.avgMastery < 40).length;
-    return { avgMastery, avgHappiness, atRisk, total: students.length };
-  })();
-
-  const generateAll = async () => {
-    if (!classId || students.length === 0) {
-      toast({ title: 'No students found in this class', variant: 'destructive' });
+  const exportToExcel = () => {
+    if (reportRows.length === 0) {
+      toast({ title: 'No data to export', variant: 'destructive' });
       return;
     }
-    setGenerating(true);
-    try {
-      for (const s of students) {
-        const { data: masteryData } = await supabase.from('mastery_states').select('*').eq('student_id', s.id);
-        const scores: Record<string, number> = {};
-        (masteryData || []).forEach((m: any) => {
-          const t = topics.find(tp => tp.id === m.topic_id);
-          if (t) scores[t.title] = m.mastery_score;
-        });
-        const result = await aiService.generateWeeklyReport({ studentName: s.name, masteryScores: scores });
-        await supabase.from('weekly_reports').insert({
-          class_id: classId, student_id: s.id,
-          week_start: new Date().toISOString().split('T')[0],
-          report_text: result.reportText,
-          interventions_text: result.interventionsText,
-          status: 'draft',
-        });
-      }
-      toast({ title: `Generated reports for ${students.length} students!` });
-    } catch (e) {
-      console.error('Report generation failed:', e);
-      toast({ title: 'Failed to generate reports', variant: 'destructive' });
-    } finally {
-      setGenerating(false);
-      refetchReports();
-    }
-  };
 
-  const approve = async (id: string) => {
-    await supabase.from('weekly_reports').update({ status: 'approved', approved_by: user!.id }).eq('id', id);
-    refetchReports();
-    toast({ title: 'Report approved' });
-  };
+    const className = classes.find(c => c.id === classId)?.name || 'Class';
+    const headers = ['Student Name', 'Class Level', 'Section', 'Avg Mastery %', 'Happiness (1-5)', 'Topics Completed', 'Total Topics', 'Strong Topics', 'Weak Topics', 'Status'];
 
-  const send = async (id: string) => {
-    await supabase.from('weekly_reports').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', id);
-    await supabase.from('audit_logs').insert({
-      actor_user_id: user!.id, action: 'report_sent',
-      entity_type: 'weekly_report', entity_id: id,
-    });
-    refetchReports();
-    toast({ title: 'SMS-ready report sent (simulated)' });
+    const csvRows = reportRows.map(r => [
+      r.name,
+      r.classLevel || '',
+      r.section || '',
+      r.avgMastery,
+      r.avgHappiness ?? '',
+      r.topicsCompleted,
+      r.totalTopics,
+      `"${r.strongTopics.join(', ')}"`,
+      `"${r.weakTopics.join(', ')}"`,
+      r.status,
+    ]);
+
+    const csvContent = [
+      [`Weekly Student Report - ${className} - ${new Date().toLocaleDateString()}`],
+      [],
+      headers,
+      ...csvRows,
+      [],
+      ['Summary'],
+      ['Total Students', summary?.total],
+      ['Class Avg Mastery', `${summary?.avgMastery}%`],
+      ['Class Avg Happiness', summary?.avgHappiness ?? 'N/A'],
+      ['Excellent (≥75%)', summary?.excellent],
+      ['Needs Support (<50%)', summary?.needsSupport],
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${className}_weekly_report_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Report exported successfully!' });
   };
 
   const getMasteryColor = (score: number) => {
     if (score >= 75) return 'text-success';
     if (score >= 50) return 'text-warning';
-    return 'text-destructive';
+    if (score > 0) return 'text-destructive';
+    return 'text-muted-foreground';
   };
 
-  const getMasteryTrend = (score: number) => {
+  const getStatusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      'Excellent': 'bg-success/10 text-success',
+      'Good': 'bg-primary/10 text-primary',
+      'Needs Support': 'bg-destructive/10 text-destructive',
+      'No Data': 'bg-muted text-muted-foreground',
+    };
+    return styles[status] || 'bg-muted text-muted-foreground';
+  };
+
+  const getTrendIcon = (score: number) => {
     if (score >= 75) return <TrendingUp className="h-3.5 w-3.5 text-success" />;
     if (score >= 50) return <Minus className="h-3.5 w-3.5 text-warning" />;
-    return <TrendingDown className="h-3.5 w-3.5 text-destructive" />;
+    if (score > 0) return <TrendingDown className="h-3.5 w-3.5 text-destructive" />;
+    return null;
   };
 
-  const isLoading = classesLoading || studentsLoading || reportsLoading;
+  const isLoading = classesLoading || studentsLoading;
 
   return (
-    <div className="animate-fade-in space-y-6 max-w-5xl">
+    <div className="animate-fade-in space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-foreground">Weekly Reports</h1>
         <div className="flex items-center gap-3">
@@ -141,48 +169,46 @@ const WeeklyReports = () => {
               </SelectContent>
             </Select>
           )}
-          <Button onClick={generateAll} disabled={generating || isLoading || students.length === 0} className="gap-2">
-            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {generating ? 'Generating…' : 'Generate All'}
+          <Button onClick={exportToExcel} disabled={isLoading || reportRows.length === 0} className="gap-2">
+            <Download className="h-4 w-4" /> Export CSV
           </Button>
         </div>
       </div>
 
-      {/* Class Performance Summary */}
-      {!isLoading && classSummary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-card rounded-xl border border-border p-4 shadow-card">
-            <div className="flex items-center gap-2 mb-1">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              <p className="text-xs text-muted-foreground">Avg Mastery</p>
-            </div>
-            <p className={`text-xl font-bold ${getMasteryColor(classSummary.avgMastery)}`}>
-              {classSummary.avgMastery.toFixed(0)}%
-            </p>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-4 shadow-card">
-            <div className="flex items-center gap-2 mb-1">
-              <Smile className="h-4 w-4 text-primary" />
-              <p className="text-xs text-muted-foreground">Avg Happiness</p>
-            </div>
-            <p className="text-xl font-bold text-foreground">
-              {classSummary.avgHappiness !== null ? `${classSummary.avgHappiness.toFixed(1)}/5` : '—'}
-            </p>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-4 shadow-card">
+      {/* Summary Cards */}
+      {!isLoading && summary && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="bg-card rounded-xl border border-border p-4 shadow-card text-center">
             <p className="text-xs text-muted-foreground mb-1">Students</p>
-            <p className="text-xl font-bold text-foreground">{classSummary.total}</p>
+            <p className="text-xl font-bold text-foreground">{summary.total}</p>
           </div>
-          <div className="bg-card rounded-xl border border-border p-4 shadow-card">
-            <p className="text-xs text-muted-foreground mb-1">At Risk</p>
-            <p className={`text-xl font-bold ${classSummary.atRisk > 0 ? 'text-destructive' : 'text-success'}`}>
-              {classSummary.atRisk}
-            </p>
+          <div className="bg-card rounded-xl border border-border p-4 shadow-card text-center">
+            <p className="text-xs text-muted-foreground mb-1">Avg Mastery</p>
+            <p className={`text-xl font-bold ${getMasteryColor(summary.avgMastery)}`}>{summary.avgMastery}%</p>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-4 shadow-card text-center">
+            <p className="text-xs text-muted-foreground mb-1">Avg Happiness</p>
+            <p className="text-xl font-bold text-foreground">{summary.avgHappiness !== null ? `${summary.avgHappiness}/5` : '—'}</p>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-4 shadow-card text-center">
+            <p className="text-xs text-muted-foreground mb-1">Excellent</p>
+            <p className="text-xl font-bold text-success">{summary.excellent}</p>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-4 shadow-card text-center">
+            <p className="text-xs text-muted-foreground mb-1">Needs Support</p>
+            <p className={`text-xl font-bold ${summary.needsSupport > 0 ? 'text-destructive' : 'text-success'}`}>{summary.needsSupport}</p>
           </div>
         </div>
       )}
 
-      {isLoading && <p className="text-muted-foreground text-sm">Loading…</p>}
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center space-y-2">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+            <p className="text-sm text-muted-foreground">Loading report data…</p>
+          </div>
+        </div>
+      )}
 
       {!isLoading && classes.length === 0 && (
         <p className="text-muted-foreground text-sm">No classes assigned. Please contact your administrator.</p>
@@ -192,113 +218,126 @@ const WeeklyReports = () => {
         <p className="text-muted-foreground text-sm">No students enrolled in this class yet.</p>
       )}
 
-      {!isLoading && reports.length === 0 && students.length > 0 && (
-        <p className="text-muted-foreground text-sm">No reports yet. Click "Generate All" to create draft reports for {students.length} students.</p>
+      {/* Student Report Table */}
+      {!isLoading && reportRows.length > 0 && (
+        <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[180px]">Student</TableHead>
+                  <TableHead className="text-center">Mastery</TableHead>
+                  <TableHead className="text-center">Happiness</TableHead>
+                  <TableHead className="text-center">Topics Done</TableHead>
+                  <TableHead>Strong Topics</TableHead>
+                  <TableHead>Weak Topics</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {reportRows.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                          {r.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{r.name}</p>
+                          {(r.classLevel || r.section) && (
+                            <p className="text-[10px] text-muted-foreground">{r.classLevel}{r.section ? ` - ${r.section}` : ''}</p>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 justify-center">
+                        {getTrendIcon(r.avgMastery)}
+                        <Progress value={r.avgMastery} className="h-1.5 w-16" />
+                        <span className={`text-xs font-semibold ${getMasteryColor(r.avgMastery)}`}>
+                          {r.avgMastery > 0 ? `${r.avgMastery}%` : '—'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {r.avgHappiness !== null ? (
+                        <span className="text-sm">
+                          {r.avgHappiness >= 4 ? '😊' : r.avgHappiness >= 3 ? '🙂' : '😐'}{' '}
+                          <span className="font-medium">{r.avgHappiness}</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="text-sm font-medium text-foreground">{r.topicsCompleted}</span>
+                      <span className="text-xs text-muted-foreground">/{r.totalTopics}</span>
+                    </TableCell>
+                    <TableCell>
+                      {r.strongTopics.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+                          {r.strongTopics.slice(0, 3).map((t, i) => (
+                            <span key={i} className="text-[10px] bg-success/10 text-success px-1.5 py-0.5 rounded truncate max-w-[100px]" title={t}>{t}</span>
+                          ))}
+                          {r.strongTopics.length > 3 && (
+                            <span className="text-[10px] text-muted-foreground">+{r.strongTopics.length - 3}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {r.weakTopics.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+                          {r.weakTopics.slice(0, 3).map((t, i) => (
+                            <span key={i} className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded truncate max-w-[100px]" title={t}>{t}</span>
+                          ))}
+                          {r.weakTopics.length > 3 && (
+                            <span className="text-[10px] text-muted-foreground">+{r.weakTopics.length - 3}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${getStatusBadge(r.status)}`}>
+                        {r.status}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       )}
 
-      {/* Report Cards with Performance */}
-      <div className="space-y-3">
-        {reports.map(r => {
-          const student = students.find(s => s.id === r.studentId);
-          const perf = r.studentId ? getStudentPerformance(r.studentId) : null;
-          const isExpanded = expandedId === r.id;
-
-          return (
-            <div key={r.id} className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
-              {/* Header */}
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <p className="font-semibold text-foreground">{student?.name || 'Unknown'}</p>
-                      <p className="text-xs text-muted-foreground">Week of {r.weekStart}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                      r.status === 'sent' ? 'bg-success/10 text-success' :
-                      r.status === 'approved' ? 'bg-primary/10 text-primary' :
-                      'bg-warning/10 text-warning'
-                    }`}>{r.status.toUpperCase()}</span>
-                  </div>
-                </div>
-
-                {/* Quick Performance Stats */}
-                {perf && (
-                  <div className="flex flex-wrap gap-4 mb-3 text-sm">
-                    <div className="flex items-center gap-1.5">
-                      {getMasteryTrend(perf.avgMastery)}
-                      <span className="text-muted-foreground">Mastery:</span>
-                      <span className={`font-semibold ${getMasteryColor(perf.avgMastery)}`}>{perf.avgMastery.toFixed(0)}%</span>
-                    </div>
-                    {perf.avgHappiness !== null && (
-                      <div className="flex items-center gap-1.5">
-                        <Smile className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Happiness:</span>
-                        <span className="font-semibold text-foreground">{perf.avgHappiness.toFixed(1)}/5</span>
-                      </div>
-                    )}
-                    {perf.weakTopics.length > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">Weak topics:</span>
-                        <span className="font-semibold text-destructive">{perf.weakTopics.length}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <p className="text-sm text-foreground whitespace-pre-line mb-2">{r.reportText}</p>
-                <p className="text-sm text-muted-foreground italic whitespace-pre-line">{r.interventionsText}</p>
-
-                {/* Expand/Collapse for topic details */}
-                {perf && perf.totalTopics > 0 && (
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : r.id)}
-                    className="mt-3 text-xs text-primary flex items-center gap-1 hover:underline"
-                  >
-                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    {isExpanded ? 'Hide' : 'View'} topic breakdown ({perf.totalTopics} topics)
-                  </button>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2 mt-3">
-                  {r.status === 'draft' && (
-                    <Button size="sm" variant="outline" className="gap-1" onClick={() => approve(r.id)}>
-                      <Check className="h-3 w-3" /> Approve
-                    </Button>
-                  )}
-                  {r.status === 'approved' && (
-                    <Button size="sm" className="gap-1" onClick={() => send(r.id)}>
-                      <Send className="h-3 w-3" /> Send SMS
-                    </Button>
+      {/* Needs Support Section */}
+      {!isLoading && reportRows.filter(r => r.status === 'Needs Support').length > 0 && (
+        <div className="bg-card rounded-xl border border-border p-5 shadow-card">
+          <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive" /> Students Needing Intervention
+          </h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {reportRows.filter(r => r.status === 'Needs Support').map(r => (
+              <div key={r.id} className="bg-destructive/5 rounded-lg p-3">
+                <p className="text-sm font-medium text-foreground">{r.name}</p>
+                <div className="flex items-center gap-3 mt-1 text-xs">
+                  <span className="text-destructive font-medium">{r.avgMastery}% mastery</span>
+                  {r.avgHappiness !== null && (
+                    <span className="text-muted-foreground">{r.avgHappiness}/5 happy</span>
                   )}
                 </div>
+                {r.weakTopics.length > 0 && (
+                  <p className="text-[10px] text-muted-foreground mt-1">Weak: {r.weakTopics.join(', ')}</p>
+                )}
               </div>
-
-              {/* Expanded Topic Breakdown */}
-              {isExpanded && perf && (
-                <div className="border-t border-border bg-muted/30 p-5 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Topic Mastery Breakdown</p>
-                  {perf.topicScores.map((t, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <span className="text-xs text-foreground w-36 truncate" title={t.topicTitle}>{t.topicTitle}</span>
-                      <Progress value={t.score} className="flex-1 h-2" />
-                      <span className={`text-xs font-semibold w-10 text-right ${getMasteryColor(t.score)}`}>{t.score.toFixed(0)}%</span>
-                    </div>
-                  ))}
-                  {perf.strongTopics.length > 0 && (
-                    <p className="text-xs text-success mt-2">✓ Strong in: {perf.strongTopics.map(t => t.topicTitle).join(', ')}</p>
-                  )}
-                  {perf.weakTopics.length > 0 && (
-                    <p className="text-xs text-destructive mt-1">⚠ Needs help in: {perf.weakTopics.map(t => t.topicTitle).join(', ')}</p>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
