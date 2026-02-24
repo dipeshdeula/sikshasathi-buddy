@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trophy, MessageSquare, Star, Trash2, Edit, Eye, Image } from 'lucide-react';
+import { Plus, Trophy, MessageSquare, Star, Trash2, Edit, Eye, Image, Send } from 'lucide-react';
 
 interface Challenge {
   id: string;
@@ -122,6 +122,12 @@ const TeacherChallenges = () => {
     if (showView) fetchSubmissions(showView.id);
   };
 
+  const handlePublishToggle = async (id: string, current: boolean) => {
+    await supabase.from('challenges').update({ is_active: !current }).eq('id', id);
+    toast({ title: current ? 'Challenge unpublished' : 'Challenge published! Students can now see it.' });
+    fetchChallenges();
+  };
+
   const openEdit = (c: Challenge) => {
     setTitle(c.title); setDescription(c.description); setDueDate(c.due_date || '');
     setShowEdit(c);
@@ -175,6 +181,9 @@ const TeacherChallenges = () => {
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="sm" onClick={() => openView(c)}><Eye className="h-3 w-3 mr-1" /> View</Button>
+                      <Button variant="ghost" size="sm" onClick={() => handlePublishToggle(c.id, c.is_active)}>
+                        <Send className="h-3 w-3 mr-1" /> {c.is_active ? 'Unpublish' : 'Publish'}
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Edit className="h-3 w-3 mr-1" /> Edit</Button>
                       <Button variant="ghost" size="sm" onClick={() => handleDelete(c.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
                     </div>

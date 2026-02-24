@@ -60,25 +60,10 @@ const StudentChallenges = () => {
     if (!user) return;
     setLoading(true);
 
-    // Get student's enrolled classes first
-    const { data: enrollment } = await supabase
-      .from('class_students')
-      .select('class_id')
-      .eq('student_id', user.id);
-    const classIds = (enrollment || []).map(e => e.class_id);
-
-    if (classIds.length === 0) {
-      setChallenges([]);
-      setSubmissions({});
-      setLoading(false);
-      return;
-    }
-
-    // Fetch active challenges for enrolled classes
+    // RLS handles visibility - just fetch active challenges
     const { data, error } = await supabase
       .from('challenges')
       .select('*')
-      .in('class_id', classIds)
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
