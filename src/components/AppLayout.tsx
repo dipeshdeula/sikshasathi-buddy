@@ -6,6 +6,7 @@ import {
   LayoutDashboard, BookOpen, FileQuestion, ClipboardList, BarChart3,
   FileText, Bell, Users, LogOut, Menu, X, GraduationCap,
   SmilePlus, TrendingUp, Home, Bot, ChevronRight, Upload,
+  Trophy, Presentation, PieChart,
 } from 'lucide-react';
 
 const navItems: Record<string, { label: string; icon: ReactNode; path: string }[]> = {
@@ -13,14 +14,20 @@ const navItems: Record<string, { label: string; icon: ReactNode; path: string }[
     { label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, path: '/teacher' },
     { label: 'CDC Upload', icon: <Upload className="h-5 w-5" />, path: '/teacher/cdc-upload' },
     { label: 'Lesson Plans', icon: <BookOpen className="h-5 w-5" />, path: '/teacher/lessons' },
+    { label: 'Presentations', icon: <Presentation className="h-5 w-5" />, path: '/teacher/presentations' },
     { label: 'Quizzes', icon: <FileQuestion className="h-5 w-5" />, path: '/teacher/quizzes' },
+    { label: 'Challenges', icon: <Trophy className="h-5 w-5" />, path: '/teacher/challenges' },
     { label: 'Results Entry', icon: <ClipboardList className="h-5 w-5" />, path: '/teacher/results' },
+    { label: 'Students', icon: <Users className="h-5 w-5" />, path: '/teacher/students' },
     { label: 'Mastery', icon: <BarChart3 className="h-5 w-5" />, path: '/teacher/mastery' },
+    { label: 'KPI Dashboard', icon: <PieChart className="h-5 w-5" />, path: '/teacher/kpi' },
     { label: 'Weekly Reports', icon: <FileText className="h-5 w-5" />, path: '/teacher/reports' },
   ],
   student: [
     { label: 'Home', icon: <Home className="h-5 w-5" />, path: '/student' },
     { label: 'AI Coach', icon: <Bot className="h-5 w-5" />, path: '/student/coach' },
+    { label: 'Challenges', icon: <Trophy className="h-5 w-5" />, path: '/student/challenges' },
+    { label: 'Presentations', icon: <Presentation className="h-5 w-5" />, path: '/student/presentations' },
     { label: 'Check-in', icon: <SmilePlus className="h-5 w-5" />, path: '/student/checkin' },
     { label: 'My Progress', icon: <TrendingUp className="h-5 w-5" />, path: '/student/progress' },
   ],
