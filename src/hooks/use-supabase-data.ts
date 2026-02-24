@@ -48,14 +48,15 @@ export function useClassStudents(classId?: string) {
     if (!classId) return [];
     const { data } = await supabase
       .from('class_students')
-      .select('student_id, profiles!class_students_student_id_fkey(id, full_name, is_verified, preferred_class_level, preferred_section)')
+      .select('student_id, profiles!class_students_student_id_fkey(id, full_name, is_verified, preferred_class_level, preferred_section), classes!class_students_class_id_fkey(class_level, section)')
       .eq('class_id', classId);
     return (data || []).map((d: any) => ({
       id: d.profiles.id,
       name: d.profiles.full_name,
       isVerified: d.profiles.is_verified ?? false,
-      classLevel: d.profiles.preferred_class_level,
-      section: d.profiles.preferred_section,
+      // Prefer student preference, fallback to enrolled class config
+      classLevel: d.profiles.preferred_class_level ?? d.classes?.class_level ?? null,
+      section: d.profiles.preferred_section ?? d.classes?.section ?? null,
     }));
   }, [classId]);
 }
