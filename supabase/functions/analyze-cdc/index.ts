@@ -15,20 +15,18 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) throw new Error("Missing authorization header");
 
-    // User client for RLS validation
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) throw new Error("Unauthorized: " + (userError?.message || "no user"));
-
-    // Admin client for service operations
+    // Use service role client for all operations (including auth verification)
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Verify user token
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+    console.log("Auth check result:", user?.id, userError?.message);
+    if (userError || !user) throw new Error("Unauthorized: " + (userError?.message || "no user"));
 
     const { uploadId, fileContent, gradeName, subjectName } = await req.json();
     if (!fileContent || !uploadId) throw new Error("Missing fileContent or uploadId");
