@@ -134,6 +134,88 @@ export type Database = {
           },
         ]
       }
+      challenge_submissions: {
+        Row: {
+          answer_text: string
+          challenge_id: string
+          id: string
+          is_winner: boolean
+          review_text: string | null
+          reviewed_at: string | null
+          student_id: string
+          submitted_at: string
+        }
+        Insert: {
+          answer_text: string
+          challenge_id: string
+          id?: string
+          is_winner?: boolean
+          review_text?: string | null
+          reviewed_at?: string | null
+          student_id: string
+          submitted_at?: string
+        }
+        Update: {
+          answer_text?: string
+          challenge_id?: string
+          id?: string
+          is_winner?: boolean
+          review_text?: string | null
+          reviewed_at?: string | null
+          student_id?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_submissions_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenges: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          description: string
+          due_date: string | null
+          id: string
+          is_active: boolean
+          teacher_id: string
+          title: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          description: string
+          due_date?: string | null
+          id?: string
+          is_active?: boolean
+          teacher_id: string
+          title: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          description?: string
+          due_date?: string | null
+          id?: string
+          is_active?: boolean
+          teacher_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenges_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_students: {
         Row: {
           class_id: string
@@ -615,6 +697,39 @@ export type Database = {
           },
         ]
       }
+      student_badges: {
+        Row: {
+          awarded_at: string
+          badge_description: string | null
+          badge_name: string
+          id: string
+          points: number
+          source_id: string | null
+          source_type: string
+          student_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          badge_description?: string | null
+          badge_name: string
+          id?: string
+          points?: number
+          source_id?: string | null
+          source_type?: string
+          student_id: string
+        }
+        Update: {
+          awarded_at?: string
+          badge_description?: string | null
+          badge_name?: string
+          id?: string
+          points?: number
+          source_id?: string | null
+          source_type?: string
+          student_id?: string
+        }
+        Relationships: []
+      }
       student_checkins: {
         Row: {
           class_id: string | null
@@ -787,6 +902,44 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_presentations: {
+        Row: {
+          created_at: string
+          guideline_id: string | null
+          id: string
+          is_published: boolean
+          slides_json: Json
+          teacher_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          guideline_id?: string | null
+          id?: string
+          is_published?: boolean
+          slides_json?: Json
+          teacher_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          guideline_id?: string | null
+          id?: string
+          is_published?: boolean
+          slides_json?: Json
+          teacher_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_presentations_guideline_id_fkey"
+            columns: ["guideline_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_guidelines"
             referencedColumns: ["id"]
           },
         ]

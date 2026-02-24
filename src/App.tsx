@@ -20,12 +20,18 @@ import ResultsEntry from "./pages/teacher/ResultsEntry";
 import MasteryDashboard from "./pages/teacher/MasteryDashboard";
 import WeeklyReports from "./pages/teacher/WeeklyReports";
 import CDCUpload from "./pages/teacher/CDCUpload";
+import TeacherChallenges from "./pages/teacher/Challenges";
+import StudentRoster from "./pages/teacher/StudentRoster";
+import KPIDashboard from "./pages/teacher/KPIDashboard";
+import Presentations from "./pages/teacher/Presentations";
 
 // Student
 import StudentHome from "./pages/student/Home";
 import AICoach from "./pages/student/AICoach";
 import CheckIn from "./pages/student/CheckIn";
 import StudentProgress from "./pages/student/Progress";
+import StudentChallenges from "./pages/student/Challenges";
+import StudentPresentations from "./pages/student/Presentations";
 
 // Parent
 import ParentSnapshot from "./pages/parent/Snapshot";
@@ -79,12 +85,18 @@ const AppRoutes = () => (
       <Route path="/teacher/mastery" element={<ProtectedRoute allowedRoles={['teacher']}><MasteryDashboard /></ProtectedRoute>} />
       <Route path="/teacher/reports" element={<ProtectedRoute allowedRoles={['teacher']}><WeeklyReports /></ProtectedRoute>} />
       <Route path="/teacher/cdc-upload" element={<ProtectedRoute allowedRoles={['teacher']}><CDCUpload /></ProtectedRoute>} />
+      <Route path="/teacher/challenges" element={<ProtectedRoute allowedRoles={['teacher']}><TeacherChallenges /></ProtectedRoute>} />
+      <Route path="/teacher/students" element={<ProtectedRoute allowedRoles={['teacher']}><StudentRoster /></ProtectedRoute>} />
+      <Route path="/teacher/kpi" element={<ProtectedRoute allowedRoles={['teacher']}><KPIDashboard /></ProtectedRoute>} />
+      <Route path="/teacher/presentations" element={<ProtectedRoute allowedRoles={['teacher']}><Presentations /></ProtectedRoute>} />
 
       {/* Student routes */}
       <Route path="/student" element={<ProtectedRoute allowedRoles={['student']}><StudentHome /></ProtectedRoute>} />
       <Route path="/student/coach" element={<ProtectedRoute allowedRoles={['student']}><AICoach /></ProtectedRoute>} />
       <Route path="/student/checkin" element={<ProtectedRoute allowedRoles={['student']}><CheckIn /></ProtectedRoute>} />
       <Route path="/student/progress" element={<ProtectedRoute allowedRoles={['student']}><StudentProgress /></ProtectedRoute>} />
+      <Route path="/student/challenges" element={<ProtectedRoute allowedRoles={['student']}><StudentChallenges /></ProtectedRoute>} />
+      <Route path="/student/presentations" element={<ProtectedRoute allowedRoles={['student']}><StudentPresentations /></ProtectedRoute>} />
 
       {/* Parent routes */}
       <Route path="/parent" element={<ProtectedRoute allowedRoles={['parent']}><ParentSnapshot /></ProtectedRoute>} />
