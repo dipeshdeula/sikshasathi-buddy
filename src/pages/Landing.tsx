@@ -53,6 +53,14 @@ const Landing = () => {
     { icon: <Eye className="h-6 w-6" />, value: t('stats.stat4Value'), label: t('stats.stat4Label'), desc: t('stats.stat4Desc') },
   ];
 
+  const teamMembers = [
+    { name: 'Dipesh Deula', role: t('team.role1'), photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&crop=face' },
+    { name: 'Aayush Sharma', role: t('team.role2'), photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&h=300&fit=crop&crop=face' },
+    { name: 'Srijana Basnet', role: t('team.role3'), photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=300&fit=crop&crop=face' },
+    { name: 'Rohan Thapa', role: t('team.role4'), photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&h=300&fit=crop&crop=face' },
+    { name: 'Priya Adhikari', role: t('team.role5'), photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&h=300&fit=crop&crop=face' },
+  ];
+
   const scrollToFeatures = () => {
     document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -303,6 +311,46 @@ const Landing = () => {
               {t('cta.button')} <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
+        </div>
+      </section>
+
+      {/* About Us — Team */}
+      <section className="bg-background py-20">
+        <div className="max-w-6xl mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-14"
+          >
+            <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-3">{t('team.title')}</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">{t('team.subtitle')}</p>
+          </motion.div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8">
+            {teamMembers.map((member, i) => (
+              <motion.div
+                key={member.name}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="flex flex-col items-center text-center"
+              >
+                <div className="relative mb-4">
+                  <div className="h-28 w-28 rounded-full p-[3px] bg-gradient-to-br from-green-400 via-emerald-500 to-teal-600">
+                    <img
+                      src={member.photo}
+                      alt={member.name}
+                      className="h-full w-full rounded-full object-cover border-2 border-background"
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
+                <h3 className="text-base font-semibold text-foreground">{member.name}</h3>
+                <p className="text-sm text-muted-foreground">{member.role}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
