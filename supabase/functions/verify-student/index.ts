@@ -37,8 +37,8 @@ serve(async (req) => {
 
     // Update profile: verified + optional class info
     const profileUpdate: Record<string, any> = { is_verified: true };
-    if (class_level) profileUpdate.preferred_class_level = class_level;
-    if (section) profileUpdate.preferred_section = section;
+    if (class_level !== undefined) profileUpdate.preferred_class_level = class_level;
+    if (section !== undefined) profileUpdate.preferred_section = section;
 
     await adminClient.from("profiles").update(profileUpdate).eq("id", student_id);
 

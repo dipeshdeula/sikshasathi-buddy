@@ -104,6 +104,8 @@ const StudentRoster = () => {
     fetchAllStudents();
   }, []);
 
+  const studentIds = students.map((s: any) => s.id).sort().join(',');
+
   // Fetch metrics for enrolled students
   useEffect(() => {
     if (!students.length) return;
@@ -160,7 +162,7 @@ const StudentRoster = () => {
         });
         setLessonVerifData(counts);
       });
-  }, [students.length]);
+  }, [studentIds]);
 
   const getStudentMetrics = (sId: string, sName: string): StudentMetrics => {
     const scores = mastery.filter((m) => m.studentId === sId);
