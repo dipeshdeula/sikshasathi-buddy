@@ -64,6 +64,8 @@ const StudentRoster = () => {
   // Pending students from edge function
   const [pendingStudents, setPendingStudents] = useState<PendingStudent[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
+  // Per-pending-student selections for class level & section
+  const [pendingSelections, setPendingSelections] = useState<Record<string, { classLevel: string; section: string }>>({});
 
   // Extra metrics
   const [challengeData, setChallengeData] = useState<Record<string, number>>({});
@@ -139,13 +141,33 @@ const StudentRoster = () => {
   };
 
   const handleVerifyStudent = async (studentId: string) => {
-    if (!classId) { toast({ title: 'No class selected', variant: 'destructive' }); return; }
     try {
       const res = await supabase.functions.invoke('verify-student', {
-        body: { student_id: studentId, class_id: classId },
+        body: { student_id: studentId },
       });
       if (res.data?.error) throw new Error(res.data.error);
-      toast({ title: 'Student verified and added to class!' });
+      toast({ title: 'Student verified!' });
+      // Update local state
+      setPendingStudents(prev => prev.map(s => s.id === studentId ? { ...s, is_verified: true } : s));
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleAddToClass = async (studentId: string) => {
+    if (!classId) { toast({ title: 'No class selected', variant: 'destructive' }); return; }
+    const sel = pendingSelections[studentId];
+    try {
+      const res = await supabase.functions.invoke('verify-student', {
+        body: {
+          student_id: studentId,
+          class_id: classId,
+          class_level: sel?.classLevel || undefined,
+          section: sel?.section || undefined,
+        },
+      });
+      if (res.data?.error) throw new Error(res.data.error);
+      toast({ title: 'Student added to class!' });
       setPendingStudents(prev => prev.filter(s => s.id !== studentId));
       refetchStudents();
     } catch (err: any) {
@@ -242,34 +264,53 @@ const StudentRoster = () => {
           <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-warning" /> Pending Verification ({pendingStudents.length})
           </h2>
-          <p className="text-xs text-muted-foreground">These students registered and are awaiting your verification to access the platform.</p>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pendingStudents.map(s => (
-                <TableRow key={s.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-warning/10 text-warning flex items-center justify-center text-xs font-bold">{s.name.charAt(0)}</div>
-                      <span className="font-medium text-sm">{s.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="default" onClick={() => handleVerifyStudent(s.id)}>
-                        <CheckCircle className="h-3 w-3 mr-1" /> Verify & Add to Class
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <p className="text-xs text-muted-foreground">Assign class level &amp; section, then verify and add students to your class.</p>
+          <div className="space-y-3">
+            {pendingStudents.map(s => {
+              const sel = pendingSelections[s.id] || { classLevel: '', section: '' };
+              return (
+                <div key={s.id} className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
+                  {/* Name */}
+                  <div className="flex items-center gap-2 min-w-[140px]">
+                    <div className="h-8 w-8 rounded-full bg-warning/10 text-warning flex items-center justify-center text-xs font-bold shrink-0">{s.name.charAt(0)}</div>
+                    <span className="font-medium text-sm text-foreground">{s.name}</span>
+                  </div>
+
+                  {/* Class Level Dropdown */}
+                  <Select
+                    value={sel.classLevel}
+                    onValueChange={v => setPendingSelections(prev => ({ ...prev, [s.id]: { ...prev[s.id], classLevel: v, section: prev[s.id]?.section || '' } }))}
+                  >
+                    <SelectTrigger className="w-32 h-8 text-xs bg-card"><SelectValue placeholder="Class Level" /></SelectTrigger>
+                    <SelectContent className="bg-card border border-border z-50">
+                      {CLASS_LEVELS.map(l => <SelectItem key={l} value={l}>Class {l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Section Dropdown */}
+                  <Select
+                    value={sel.section}
+                    onValueChange={v => setPendingSelections(prev => ({ ...prev, [s.id]: { classLevel: prev[s.id]?.classLevel || '', section: v } }))}
+                  >
+                    <SelectTrigger className="w-32 h-8 text-xs bg-card"><SelectValue placeholder="Section" /></SelectTrigger>
+                    <SelectContent className="bg-card border border-border z-50">
+                      {SECTIONS.map(sec => <SelectItem key={sec} value={sec}>Section {sec}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 ml-auto">
+                    <Button size="sm" variant="outline" onClick={() => handleVerifyStudent(s.id)} title="Verify only">
+                      <CheckCircle className="h-3.5 w-3.5 mr-1 text-success" /> Verify
+                    </Button>
+                    <Button size="sm" variant="default" onClick={() => handleAddToClass(s.id)} title="Verify and add to selected class">
+                      <UserPlus className="h-3.5 w-3.5 mr-1" /> Add to Class
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

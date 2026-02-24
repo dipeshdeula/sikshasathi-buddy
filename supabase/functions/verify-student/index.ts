@@ -33,26 +33,31 @@ serve(async (req) => {
     if (!roleData || roleData.role !== "TEACHER") throw new Error("Only teachers can verify students");
 
     const { student_id, class_id, class_level, section } = await req.json();
-    if (!student_id || !class_id) throw new Error("Missing student_id or class_id");
+    if (!student_id) throw new Error("Missing student_id");
 
-    // Verify teacher owns the class
-    const { data: classData } = await adminClient
-      .from("classes")
-      .select("id")
-      .eq("id", class_id)
-      .eq("teacher_id", caller.id)
-      .single();
-    if (!classData) throw new Error("You don't own this class");
-
-    // Update profile: verified + class info
+    // Update profile: verified + optional class info
     const profileUpdate: Record<string, any> = { is_verified: true };
     if (class_level) profileUpdate.preferred_class_level = class_level;
     if (section) profileUpdate.preferred_section = section;
 
     await adminClient.from("profiles").update(profileUpdate).eq("id", student_id);
 
-    // Add to class (ignore duplicate)
-    await adminClient.from("class_students").insert({ class_id, student_id }).select();
+    // If class_id provided, verify teacher owns it and add student
+    if (class_id) {
+      const { data: classData } = await adminClient
+        .from("classes")
+        .select("id")
+        .eq("id", class_id)
+        .eq("teacher_id", caller.id)
+        .single();
+      if (!classData) throw new Error("You don't own this class");
+
+      // Insert (ignore duplicate)
+      const { error: linkErr } = await adminClient
+        .from("class_students")
+        .insert({ class_id, student_id });
+      if (linkErr && !linkErr.message.includes("duplicate")) throw linkErr;
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
