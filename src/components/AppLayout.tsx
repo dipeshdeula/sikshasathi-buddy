@@ -1,46 +1,62 @@
-import { ReactNode, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import OfflineBanner from './OfflineBanner';
+import { ReactNode, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import OfflineBanner from "./OfflineBanner";
 import {
-  LayoutDashboard, BookOpen, FileQuestion, ClipboardList, BarChart3,
-  FileText, Bell, Users, LogOut, Menu, X, GraduationCap,
-  SmilePlus, TrendingUp, Home, Bot, ChevronRight, Upload,
-  Trophy, Presentation, PieChart,
-} from 'lucide-react';
+  LayoutDashboard,
+  BookOpen,
+  FileQuestion,
+  ClipboardList,
+  BarChart3,
+  FileText,
+  Bell,
+  Users,
+  LogOut,
+  Menu,
+  X,
+  GraduationCap,
+  SmilePlus,
+  TrendingUp,
+  Home,
+  Bot,
+  ChevronRight,
+  Upload,
+  Trophy,
+  Presentation,
+  PieChart,
+} from "lucide-react";
 
 const navItems: Record<string, { label: string; icon: ReactNode; path: string }[]> = {
   teacher: [
-    { label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, path: '/teacher' },
-    { label: 'CDC Upload', icon: <Upload className="h-5 w-5" />, path: '/teacher/cdc-upload' },
-    { label: 'Lesson Plans', icon: <BookOpen className="h-5 w-5" />, path: '/teacher/lessons' },
-    { label: 'Presentations', icon: <Presentation className="h-5 w-5" />, path: '/teacher/presentations' },
-    { label: 'Quizzes', icon: <FileQuestion className="h-5 w-5" />, path: '/teacher/quizzes' },
-    { label: 'Challenges', icon: <Trophy className="h-5 w-5" />, path: '/teacher/challenges' },
-    { label: 'Results Entry', icon: <ClipboardList className="h-5 w-5" />, path: '/teacher/results' },
-    { label: 'Students', icon: <Users className="h-5 w-5" />, path: '/teacher/students' },
-    { label: 'Mastery', icon: <BarChart3 className="h-5 w-5" />, path: '/teacher/mastery' },
-    { label: 'Weekly Reports', icon: <FileText className="h-5 w-5" />, path: '/teacher/reports' },
+    { label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" />, path: "/teacher" },
+    { label: "CDC Upload", icon: <Upload className="h-5 w-5" />, path: "/teacher/cdc-upload" },
+    { label: "Lesson Plans", icon: <BookOpen className="h-5 w-5" />, path: "/teacher/lessons" },
+    { label: "Presentations", icon: <Presentation className="h-5 w-5" />, path: "/teacher/presentations" },
+    { label: "Quizzes", icon: <FileQuestion className="h-5 w-5" />, path: "/teacher/quizzes" },
+    { label: "Challenges", icon: <Trophy className="h-5 w-5" />, path: "/teacher/challenges" },
+    { label: "Students", icon: <Users className="h-5 w-5" />, path: "/teacher/students" },
+    { label: "Mastery", icon: <BarChart3 className="h-5 w-5" />, path: "/teacher/mastery" },
+    { label: "Weekly Reports", icon: <FileText className="h-5 w-5" />, path: "/teacher/reports" },
   ],
   student: [
-    { label: 'Home', icon: <Home className="h-5 w-5" />, path: '/student' },
-    { label: 'AI Coach', icon: <Bot className="h-5 w-5" />, path: '/student/coach' },
-    { label: 'Quizzes', icon: <FileQuestion className="h-5 w-5" />, path: '/student/quizzes' },
-    { label: 'Challenges', icon: <Trophy className="h-5 w-5" />, path: '/student/challenges' },
-    { label: 'Presentations', icon: <Presentation className="h-5 w-5" />, path: '/student/presentations' },
-    { label: 'Feedback', icon: <SmilePlus className="h-5 w-5" />, path: '/student/checkin' },
-    { label: 'My Progress', icon: <TrendingUp className="h-5 w-5" />, path: '/student/progress' },
+    { label: "Home", icon: <Home className="h-5 w-5" />, path: "/student" },
+    { label: "AI Coach", icon: <Bot className="h-5 w-5" />, path: "/student/coach" },
+    { label: "Quizzes", icon: <FileQuestion className="h-5 w-5" />, path: "/student/quizzes" },
+    { label: "Challenges", icon: <Trophy className="h-5 w-5" />, path: "/student/challenges" },
+    { label: "Presentations", icon: <Presentation className="h-5 w-5" />, path: "/student/presentations" },
+    { label: "Feedback", icon: <SmilePlus className="h-5 w-5" />, path: "/student/checkin" },
+    { label: "My Progress", icon: <TrendingUp className="h-5 w-5" />, path: "/student/progress" },
   ],
   parent: [
-    { label: 'Snapshot', icon: <Home className="h-5 w-5" />, path: '/parent' },
-    { label: 'Reports', icon: <FileText className="h-5 w-5" />, path: '/parent/reports' },
-    { label: 'Notifications', icon: <Bell className="h-5 w-5" />, path: '/parent/notifications' },
+    { label: "Snapshot", icon: <Home className="h-5 w-5" />, path: "/parent" },
+    { label: "Reports", icon: <FileText className="h-5 w-5" />, path: "/parent/reports" },
+    { label: "Notifications", icon: <Bell className="h-5 w-5" />, path: "/parent/notifications" },
   ],
   admin: [
-    { label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, path: '/admin' },
-    { label: 'Users', icon: <Users className="h-5 w-5" />, path: '/admin/users' },
-    { label: 'Classes', icon: <GraduationCap className="h-5 w-5" />, path: '/admin/classes' },
-    { label: 'Subjects', icon: <BookOpen className="h-5 w-5" />, path: '/admin/subjects' },
+    { label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" />, path: "/admin" },
+    { label: "Users", icon: <Users className="h-5 w-5" />, path: "/admin/users" },
+    { label: "Classes", icon: <GraduationCap className="h-5 w-5" />, path: "/admin/classes" },
+    { label: "Subjects", icon: <BookOpen className="h-5 w-5" />, path: "/admin/subjects" },
   ],
 };
 
@@ -60,7 +76,9 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         <div className="fixed inset-0 z-40 bg-foreground/20 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 gradient-hero flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      <aside
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 gradient-hero flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+      >
         <div className="p-5 flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg bg-accent flex items-center justify-center">
             <GraduationCap className="h-5 w-5 text-accent-foreground" />
@@ -75,7 +93,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {items.map(item => {
+          {items.map((item) => {
             const active = location.pathname === item.path;
             return (
               <Link
@@ -84,8 +102,8 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
                 onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   active
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-primary-foreground/70 hover:bg-sidebar-accent/50 hover:text-primary-foreground'
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-primary-foreground/70 hover:bg-sidebar-accent/50 hover:text-primary-foreground"
                 }`}
               >
                 {item.icon}
@@ -107,7 +125,10 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
             </div>
           </div>
           <button
-            onClick={() => { logout(); navigate('/'); }}
+            onClick={() => {
+              logout();
+              navigate("/");
+            }}
             className="w-full flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-sm text-primary-foreground/60 hover:bg-sidebar-accent/50 hover:text-primary-foreground transition-colors"
           >
             <LogOut className="h-4 w-4" /> Sign out
@@ -124,9 +145,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           <div className="flex-1" />
           <Bell className="h-5 w-5 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
         </header>
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {children}
-        </main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );
