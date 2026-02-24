@@ -109,7 +109,7 @@ const StudentProgress = () => {
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="bg-card rounded-xl border border-border p-5 shadow-card">
           <h2 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
-            <SmilePlus className="h-4 w-4 text-warning" /> Happiness (7 Days)
+            <SmilePlus className="h-4 w-4 text-warning" /> Satisfaction (7 Days)
           </h2>
           {last7.some(d => d.score !== null) ? (
             <ResponsiveContainer width="100%" height={180}>
@@ -122,7 +122,7 @@ const StudentProgress = () => {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-6">No check-ins this week. Do a check-in!</p>
+            <p className="text-sm text-muted-foreground text-center py-6">No feedback this week. Share your feedback!</p>
           )}
         </div>
 

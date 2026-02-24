@@ -6,6 +6,7 @@ import { aiService } from '@/lib/ai-service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 import { Bot, Send, Eye, Lightbulb } from 'lucide-react';
 
 interface Message {
@@ -17,6 +18,7 @@ interface Message {
 
 const AICoach = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const { data: topics } = useTopics();
   const [topicId, setTopicId] = useState('');
   const [input, setInput] = useState('');
@@ -32,10 +34,18 @@ const AICoach = () => {
     setMessages(prev => [...prev, { role: 'user', content: question }]);
     setLoading(true);
 
-    const resp = await aiService.generateCoachResponse({ topic: topic.title, question });
-    setMessages(prev => [...prev, {
-      role: 'coach', content: resp.explanation, hints: resp.hints, practiceQuestions: resp.practiceQuestions,
-    }]);
+    try {
+      const resp = await aiService.generateCoachResponse({
+        topic: topic.title,
+        question,
+        conversationHistory: messages.map(m => ({ role: m.role, content: m.content })),
+      });
+      setMessages(prev => [...prev, {
+        role: 'coach', content: resp.explanation, hints: resp.hints, practiceQuestions: resp.practiceQuestions,
+      }]);
+    } catch (err: any) {
+      toast({ title: 'Coach Error', description: err.message || 'Failed to get response', variant: 'destructive' });
+    }
     setLoading(false);
 
     await supabase.from('audit_logs').insert({
@@ -48,8 +58,17 @@ const AICoach = () => {
   const showAnswer = async () => {
     if (!topic) return;
     setLoading(true);
-    const resp = await aiService.generateCoachResponse({ topic: topic.title, question: 'Show answer', showAnswer: true });
-    setMessages(prev => [...prev, { role: 'coach', content: resp.explanation }]);
+    try {
+      const resp = await aiService.generateCoachResponse({
+        topic: topic.title,
+        question: 'Show me the full answer and explanation',
+        showAnswer: true,
+        conversationHistory: messages.map(m => ({ role: m.role, content: m.content })),
+      });
+      setMessages(prev => [...prev, { role: 'coach', content: resp.explanation }]);
+    } catch (err: any) {
+      toast({ title: 'Coach Error', description: err.message || 'Failed to get answer', variant: 'destructive' });
+    }
     setLoading(false);
 
     await supabase.from('audit_logs').insert({

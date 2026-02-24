@@ -89,27 +89,17 @@ export const aiService = {
   },
 
   async generateCoachResponse(params: {
-    topic: string; question: string; showAnswer?: boolean;
+    topic: string; question: string; showAnswer?: boolean; conversationHistory?: { role: string; content: string }[];
   }): Promise<{ explanation: string; hints: string[]; practiceQuestions: string[] }> {
-    // Keep simple for now
-    if (params.showAnswer) {
-      return {
-        explanation: `Here's the full answer about ${params.topic}:\n\nThe answer is found by applying the key concept step by step.`,
-        hints: [], practiceQuestions: [],
-      };
-    }
+    const { data, error } = await supabase.functions.invoke('generate-coach-response', {
+      body: params,
+    });
+    if (error) throw new Error(error.message || 'Failed to get coach response');
+    if (data?.error) throw new Error(data.error);
     return {
-      explanation: `Let's think about "${params.question}" together! 🤔\n\nImagine you're at a market in Kathmandu...`,
-      hints: [
-        `Hint 1: Start by identifying what you know about ${params.topic}.`,
-        `Hint 2: Break the problem into smaller parts! 🥟`,
-        `Hint 3: Now put the pieces together.`,
-      ],
-      practiceQuestions: [
-        `Can you solve a simpler version?`,
-        `What if the numbers were smaller?`,
-        `Draw a picture of the problem.`,
-      ],
+      explanation: data.explanation || '',
+      hints: data.hints || [],
+      practiceQuestions: data.practiceQuestions || [],
     };
   },
 };

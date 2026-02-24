@@ -17,3 +17,15 @@ verify_jwt = false
 
 [functions.generate-presentation]
 verify_jwt = false
+
+[functions.generate-coach-response]
+verify_jwt = false
+
+[functions.list-pending-students]
+verify_jwt = false
+
+[functions.create-student]
+verify_jwt = false
+
+[functions.verify-student]
+verify_jwt = false
