@@ -54,15 +54,8 @@ const Landing = () => {
 
       {/* Hero */}
       <section className="relative overflow-hidden min-h-[90vh] flex items-center" role="banner">
-        {/* Background image */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/images/hero-bg.jpg')" }}
-          role="img"
-          aria-label="Classroom illustration background"
-        />
-        {/* Dark overlay — adapts to theme */}
-        <div className="absolute inset-0 bg-background/75 dark:bg-background/85" />
+        {/* Subtle gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-16 lg:py-24 w-full">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
