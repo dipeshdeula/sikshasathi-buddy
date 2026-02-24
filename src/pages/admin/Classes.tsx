@@ -34,12 +34,16 @@ const MultiSubjectSelect = ({
   subjects,
   selectedIds,
   onChange,
+  onCreateSubject,
 }: {
   subjects: SubjectOption[];
   selectedIds: string[];
   onChange: (ids: string[]) => void;
+  onCreateSubject?: (name: string) => Promise<string | null>;
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const toggle = (id: string) => {
     onChange(
@@ -49,7 +53,27 @@ const MultiSubjectSelect = ({
     );
   };
 
-  const selectedNames = subjects.filter(s => selectedIds.includes(s.id)).map(s => s.name);
+  const removeTag = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange(selectedIds.filter(s => s !== id));
+  };
+
+  const selectedNames = subjects.filter(s => selectedIds.includes(s.id));
+
+  const filtered = subjects.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+  const exactMatch = subjects.some(s => s.name.toLowerCase() === search.trim().toLowerCase());
+  const canCreate = search.trim().length > 0 && !exactMatch && onCreateSubject;
+
+  const handleCreate = async () => {
+    if (!onCreateSubject || !search.trim()) return;
+    setCreating(true);
+    const newId = await onCreateSubject(search.trim());
+    if (newId) {
+      onChange([...selectedIds, newId]);
+    }
+    setSearch('');
+    setCreating(false);
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -57,28 +81,43 @@ const MultiSubjectSelect = ({
         <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between h-auto min-h-10 text-left font-normal">
           {selectedNames.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {selectedNames.map(name => (
-                <Badge key={name} variant="secondary" className="text-xs">{name}</Badge>
+              {selectedNames.map(s => (
+                <Badge key={s.id} variant="secondary" className="text-xs gap-1">
+                  {s.name}
+                  <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={(e) => removeTag(s.id, e)} />
+                </Badge>
               ))}
             </div>
           ) : (
-            <span className="text-muted-foreground">Search & select subjects...</span>
+            <span className="text-muted-foreground">Search or type to create subjects...</span>
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0 z-50" align="start">
-        <Command>
-          <CommandInput placeholder="Type to search subjects..." />
+        <Command shouldFilter={false}>
+          <CommandInput placeholder="Search or type new subject..." value={search} onValueChange={setSearch} />
           <CommandList>
-            <CommandEmpty>No subjects found.</CommandEmpty>
-            <CommandGroup>
-              {subjects.map(s => (
-                <CommandItem key={s.id} value={s.name} onSelect={() => toggle(s.id)}>
-                  <Check className={cn("mr-2 h-4 w-4", selectedIds.includes(s.id) ? "opacity-100" : "opacity-0")} />
-                  {s.name}
+            {filtered.length === 0 && !canCreate && (
+              <CommandEmpty>No subjects found.</CommandEmpty>
+            )}
+            {canCreate && (
+              <CommandGroup heading="Create new">
+                <CommandItem onSelect={handleCreate} disabled={creating}>
+                  <Plus className="mr-2 h-4 w-4 text-primary" />
+                  {creating ? 'Creating...' : `Create "${search.trim()}"`}
                 </CommandItem>
-              ))}
-            </CommandGroup>
+              </CommandGroup>
+            )}
+            {filtered.length > 0 && (
+              <CommandGroup heading="Existing subjects">
+                {filtered.map(s => (
+                  <CommandItem key={s.id} value={s.id} onSelect={() => toggle(s.id)}>
+                    <Check className={cn("mr-2 h-4 w-4", selectedIds.includes(s.id) ? "opacity-100" : "opacity-0")} />
+                    {s.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
@@ -146,6 +185,16 @@ const AdminClasses = () => {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  const createSubject = async (name: string): Promise<string | null> => {
+    const { data, error } = await supabase.from('subjects').insert({ name }).select('id').single();
+    if (error) { toast({ title: 'Failed to create subject', description: error.message, variant: 'destructive' }); return null; }
+    // Refresh subjects list
+    const { data: subjectData } = await supabase.from('subjects').select('id, name').order('name');
+    setSubjects((subjectData || []).map((s: any) => ({ id: s.id, name: s.name })));
+    toast({ title: `Subject "${name}" created!` });
+    return data.id;
+  };
+
   const createClass = async () => {
     if (!form.classLevel) { toast({ title: 'Class Level (Grade) is required', variant: 'destructive' }); return; }
     setSaving(true);
@@ -159,7 +208,6 @@ const AdminClasses = () => {
     }).select('id').single();
     if (error) { setSaving(false); toast({ title: 'Failed to create class', description: error.message, variant: 'destructive' }); return; }
 
-    // Insert class_subjects
     if (form.subjectIds.length > 0 && inserted) {
       await supabase.from('class_subjects').insert(
         form.subjectIds.map(sid => ({ class_id: inserted.id, subject_id: sid }))
@@ -254,7 +302,7 @@ const AdminClasses = () => {
               </div>
               <div>
                 <Label>Assign Subjects</Label>
-                <MultiSubjectSelect subjects={subjects} selectedIds={form.subjectIds} onChange={ids => setForm(f => ({ ...f, subjectIds: ids }))} />
+                <MultiSubjectSelect subjects={subjects} selectedIds={form.subjectIds} onChange={ids => setForm(f => ({ ...f, subjectIds: ids }))} onCreateSubject={createSubject} />
               </div>
               <Button onClick={createClass} disabled={saving} className="w-full">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -324,6 +372,7 @@ const AdminClasses = () => {
                         subjects={subjects}
                         selectedIds={c.subjectIds}
                         onChange={ids => updateClassSubjects(c.id, ids)}
+                        onCreateSubject={createSubject}
                       />
                     </TableCell>
                     <TableCell className="text-center">
