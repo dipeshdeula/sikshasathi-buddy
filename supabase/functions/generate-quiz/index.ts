@@ -14,7 +14,7 @@ serve(async (req) => {
 
     const { topic, numQuestions, subject, learningOutcomes } = await req.json();
 
-    const systemPrompt = `You are an expert quiz generator for Nepal CDC curriculum (SikshaSathi).
+    const systemPrompt = `You are an expert quiz generator for Nepal CDC curriculum (Navo Ai).
 Generate quiz questions for the given topic.
 
 Return a JSON array of question objects with this structure:

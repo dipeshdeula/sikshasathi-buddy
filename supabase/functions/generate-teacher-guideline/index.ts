@@ -14,7 +14,7 @@ serve(async (req) => {
 
     const { subject, topic, unit, classLevel, teachingGuidelines, assessmentIndicators } = await req.json();
 
-    const systemPrompt = `You are an expert Nepal CDC curriculum teaching guide generator for SikshaSathi.
+    const systemPrompt = `You are an expert Nepal CDC curriculum teaching guide generator for Navo Ai.
 Generate a comprehensive teaching guideline for a Nepal school teacher.
 
 Your response must be a JSON object with exactly these fields:

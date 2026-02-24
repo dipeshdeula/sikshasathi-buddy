@@ -14,7 +14,7 @@ serve(async (req) => {
 
     const { subject, topic, unit, classLevel, durationType, learningOutcomes } = await req.json();
 
-    const systemPrompt = `You are an expert Nepal CDC curriculum-aligned lesson planner for SikshaSathi.
+    const systemPrompt = `You are an expert Nepal CDC curriculum-aligned lesson planner for Navo Ai.
 Generate a detailed, practical lesson plan for Nepal's school system.
 
 Your response must be a JSON object with exactly these fields:

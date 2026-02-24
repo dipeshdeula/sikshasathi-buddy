@@ -18,7 +18,7 @@ serve(async (req) => {
     let userPrompt: string;
 
     if (action === "generate_module_content") {
-      systemPrompt = `You are an expert educational content creator for SikshaSathi self-learning platform.
+      systemPrompt = `You are an expert educational content creator for Navo Ai self-learning platform.
 Generate comprehensive learning content for a specific module within a learning path.
 
 Return a JSON object with:
@@ -37,7 +37,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown fences.`;
 - Subject Area: ${subjectArea || 'General'}
 ${moduleContent ? `- Additional context: ${moduleContent}` : ''}`;
     } else {
-      systemPrompt = `You are an expert educational curriculum designer for SikshaSathi self-learning platform.
+      systemPrompt = `You are an expert educational curriculum designer for Navo Ai self-learning platform.
 Create a comprehensive, structured learning roadmap for a student who wants to self-study a topic.
 
 Return a JSON object with:

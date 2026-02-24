@@ -18,7 +18,7 @@ serve(async (req) => {
       .map(([topic, score]) => `- ${topic}: ${score}%`)
       .join("\n");
 
-    const systemPrompt = `You are SikshaSathi, an AI assistant for teachers in Nepal CDC curriculum schools.
+    const systemPrompt = `You are Navo Ai, an AI assistant for teachers in Nepal CDC curriculum schools.
 Generate a concise weekly progress report for a parent about their child's academic performance.
 
 STUDENT: ${studentName}

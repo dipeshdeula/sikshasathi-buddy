@@ -47,7 +47,7 @@ const Register = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="h-12 w-12 rounded-xl gradient-accent flex items-center justify-center mx-auto mb-4">
-            <GraduationCap className="h-6 w-6 text-accent-foreground" />
+            <img src="/src/assets/logo.png" alt="Logo" className="h-6 w-6 text-accent-foreground" />
           </div>
            <h1 className="text-2xl font-bold text-foreground">{t('register.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t('register.subtitle')}</p>

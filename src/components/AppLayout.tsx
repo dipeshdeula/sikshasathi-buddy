@@ -83,7 +83,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
       >
         <div className="p-5 flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg bg-accent flex items-center justify-center">
-            <GraduationCap className="h-5 w-5 text-accent-foreground" />
+            <img src="/src/assets/logo.png" alt="Logo" className="h-5 w-5 text-accent-foreground" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-primary-foreground">NAVO.AI</h1>

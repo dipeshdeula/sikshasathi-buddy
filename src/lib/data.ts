@@ -1,4 +1,4 @@
-// SikshaSathi Data Types (Supabase-backed, normalized curriculum)
+// Navo Ai Data Types (Supabase-backed, normalized curriculum)
 
 export type Role = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
 
