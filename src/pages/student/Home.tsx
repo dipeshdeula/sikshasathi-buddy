@@ -123,7 +123,7 @@ const StudentHome = () => {
         </Link>
         <Link to="/student/checkin" className="bg-success/10 rounded-xl p-4 flex flex-col items-center gap-2 hover:bg-success/15 transition-colors">
           <SmilePlus className="h-7 w-7 text-success" />
-          <span className="text-xs font-semibold text-foreground">Check-in</span>
+          <span className="text-xs font-semibold text-foreground">Feedback</span>
         </Link>
       </div>
 
@@ -132,8 +132,8 @@ const StudentHome = () => {
         <div className="bg-card rounded-xl border border-border p-5 shadow-card flex items-center gap-4">
           <span className="text-3xl">{avgHappiness >= 4 ? '😊' : avgHappiness >= 3 ? '🙂' : avgHappiness >= 2 ? '😐' : '😟'}</span>
           <div>
-            <p className="text-lg font-bold text-foreground">{avgHappiness}/5 Happiness</p>
-            <p className="text-xs text-muted-foreground">{checkins.length} check-ins total</p>
+            <p className="text-lg font-bold text-foreground">{avgHappiness}/5 Satisfaction</p>
+            <p className="text-xs text-muted-foreground">{checkins.length} feedback entries</p>
           </div>
         </div>
       )}
