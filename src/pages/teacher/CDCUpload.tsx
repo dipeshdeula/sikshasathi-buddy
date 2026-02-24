@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, Loader2, CheckCircle, XCircle, Sparkles, BookOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle, XCircle, Sparkles, BookOpen, ChevronDown, ChevronRight, ShieldCheck, Clock } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface CdcUpload {
@@ -30,6 +30,7 @@ const CDCUpload = () => {
   const [uploads, setUploads] = useState<CdcUpload[]>([]);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [approving, setApproving] = useState<string | null>(null);
   const [gradeName, setGradeName] = useState('');
   const [subjectName, setSubjectName] = useState('');
   const [pasteContent, setPasteContent] = useState('');
@@ -51,9 +52,7 @@ const CDCUpload = () => {
   const handleFileUpload = async (file: File) => {
     if (!user) return;
     setUploading(true);
-
     try {
-      // Read file content as text
       const text = await file.text();
       await processContent(text, file.name);
     } catch (err: any) {
@@ -75,9 +74,7 @@ const CDCUpload = () => {
   const processContent = async (content: string, fileName: string) => {
     if (!user) return;
     setAnalyzing(true);
-
     try {
-      // Create upload record
       const { data: upload, error: insertErr } = await supabase
         .from('cdc_uploads')
         .insert({
@@ -93,17 +90,16 @@ const CDCUpload = () => {
 
       if (insertErr || !upload) throw new Error('Failed to create upload record');
 
-      // Call AI to analyze
       const result = await aiService.analyzeCDC({
         uploadId: upload.id,
-        fileContent: content.substring(0, 50000), // Limit to ~50k chars
+        fileContent: content.substring(0, 50000),
         gradeName: gradeName || undefined,
         subjectName: subjectName || undefined,
       });
 
       toast({
-        title: '✅ CDC Analyzed Successfully!',
-        description: `Extracted ${result.units} units and ${result.topics} topics for ${result.subject} (${result.grade})`,
+        title: '🔍 Analysis Complete — Review Required',
+        description: `Found ${result.units} units and ${result.topics} topics for ${result.subject} (${result.grade}). Please review and approve.`,
       });
 
       loadUploads();
@@ -114,12 +110,46 @@ const CDCUpload = () => {
     }
   };
 
+  const handleApprove = async (uploadId: string) => {
+    setApproving(uploadId);
+    try {
+      const { data, error } = await supabase.functions.invoke('approve-cdc', {
+        body: { uploadId },
+      });
+
+      if (error) throw new Error(error.message || 'Approval failed');
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: '✅ Curriculum Approved & Saved!',
+        description: `${data.units} units and ${data.topics} topics saved to the database for ${data.subject} (${data.grade}).`,
+      });
+
+      loadUploads();
+    } catch (err: any) {
+      toast({ title: 'Approval failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setApproving(null);
+    }
+  };
+
   const statusIcon = (status: string) => {
     switch (status) {
       case 'completed': return <CheckCircle className="h-5 w-5 text-success" />;
+      case 'analyzed': return <ShieldCheck className="h-5 w-5 text-warning" />;
       case 'processing': return <Loader2 className="h-5 w-5 text-primary animate-spin" />;
       case 'error': return <XCircle className="h-5 w-5 text-destructive" />;
-      default: return <Loader2 className="h-5 w-5 text-muted-foreground" />;
+      default: return <Clock className="h-5 w-5 text-muted-foreground" />;
+    }
+  };
+
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case 'completed': return { text: 'APPROVED', className: 'bg-success/10 text-success' };
+      case 'analyzed': return { text: 'AWAITING APPROVAL', className: 'bg-yellow-500/10 text-yellow-600' };
+      case 'processing': return { text: 'PROCESSING', className: 'bg-primary/10 text-primary' };
+      case 'error': return { text: 'ERROR', className: 'bg-destructive/10 text-destructive' };
+      default: return { text: 'PENDING', className: 'bg-muted text-muted-foreground' };
     }
   };
 
@@ -130,7 +160,7 @@ const CDCUpload = () => {
           <Upload className="h-6 w-6 text-primary" /> Upload CDC Curriculum
         </h1>
         <p className="text-muted-foreground">
-          Upload or paste CDC curriculum content. AI will extract grades, subjects, units, topics, and learning outcomes automatically.
+          Upload or paste CDC curriculum content. AI will extract the structure — you review and approve before saving.
         </p>
       </div>
 
@@ -144,16 +174,9 @@ const CDCUpload = () => {
             <Select value={gradeName} onValueChange={setGradeName}>
               <SelectTrigger><SelectValue placeholder="Select or let AI detect" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Grade 1">Grade 1</SelectItem>
-                <SelectItem value="Grade 2">Grade 2</SelectItem>
-                <SelectItem value="Grade 3">Grade 3</SelectItem>
-                <SelectItem value="Grade 4">Grade 4</SelectItem>
-                <SelectItem value="Grade 5">Grade 5</SelectItem>
-                <SelectItem value="Grade 6">Grade 6</SelectItem>
-                <SelectItem value="Grade 7">Grade 7</SelectItem>
-                <SelectItem value="Grade 8">Grade 8</SelectItem>
-                <SelectItem value="Grade 9">Grade 9</SelectItem>
-                <SelectItem value="Grade 10">Grade 10</SelectItem>
+                {Array.from({ length: 10 }, (_, i) => (
+                  <SelectItem key={i} value={`Grade ${i + 1}`}>Grade {i + 1}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -167,20 +190,11 @@ const CDCUpload = () => {
           </div>
         </div>
 
-        {/* Input mode toggle */}
         <div className="flex gap-2">
-          <Button
-            variant={inputMode === 'paste' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setInputMode('paste')}
-          >
+          <Button variant={inputMode === 'paste' ? 'default' : 'outline'} size="sm" onClick={() => setInputMode('paste')}>
             <FileText className="h-4 w-4 mr-1" /> Paste Content
           </Button>
-          <Button
-            variant={inputMode === 'file' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setInputMode('file')}
-          >
+          <Button variant={inputMode === 'file' ? 'default' : 'outline'} size="sm" onClick={() => setInputMode('file')}>
             <Upload className="h-4 w-4 mr-1" /> Upload File
           </Button>
         </div>
@@ -200,11 +214,7 @@ const CDCUpload = () => {
                 {pasteContent.length > 0 ? `${pasteContent.length} characters` : 'Paste your CDC document text'}
               </p>
             </div>
-            <Button
-              onClick={handlePasteSubmit}
-              disabled={analyzing || !pasteContent.trim()}
-              className="gap-2"
-            >
+            <Button onClick={handlePasteSubmit} disabled={analyzing || !pasteContent.trim()} className="gap-2">
               {analyzing ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing with AI...</>
               ) : (
@@ -219,12 +229,8 @@ const CDCUpload = () => {
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Click to upload a text file (.txt, .csv, .md)
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                PDF support coming soon - for now, copy-paste PDF content
-              </p>
+              <p className="text-sm text-muted-foreground">Click to upload a text file (.txt, .csv, .md)</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF support coming soon - for now, copy-paste PDF content</p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -266,71 +272,124 @@ const CDCUpload = () => {
             Upload History ({uploads.length})
           </h2>
           <div className="space-y-3">
-            {uploads.map(u => (
-              <div key={u.id} className="border border-border rounded-lg overflow-hidden">
-                <div
-                  className="flex items-center gap-3 p-4 cursor-pointer hover:bg-secondary/50 transition-colors"
-                  onClick={() => setExpandedUpload(expandedUpload === u.id ? null : u.id)}
-                >
-                  {statusIcon(u.status)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{u.file_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {u.grade_name && `${u.grade_name} · `}
-                      {u.subject_name && `${u.subject_name} · `}
-                      {new Date(u.created_at).toLocaleDateString()}
-                    </p>
+            {uploads.map(u => {
+              const status = statusLabel(u.status);
+              return (
+                <div key={u.id} className="border border-border rounded-lg overflow-hidden">
+                  <div
+                    className="flex items-center gap-3 p-4 cursor-pointer hover:bg-secondary/50 transition-colors"
+                    onClick={() => setExpandedUpload(expandedUpload === u.id ? null : u.id)}
+                  >
+                    {statusIcon(u.status)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{u.file_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {u.grade_name && `${u.grade_name} · `}
+                        {u.subject_name && `${u.subject_name} · `}
+                        {new Date(u.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${status.className}`}>
+                      {status.text}
+                    </span>
+                    {expandedUpload === u.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                    u.status === 'completed' ? 'bg-success/10 text-success' :
-                    u.status === 'error' ? 'bg-destructive/10 text-destructive' :
-                    u.status === 'processing' ? 'bg-primary/10 text-primary' :
-                    'bg-muted text-muted-foreground'
-                  }`}>
-                    {u.status.toUpperCase()}
-                  </span>
-                  {expandedUpload === u.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </div>
 
-                {expandedUpload === u.id && u.extracted_data && (
-                  <div className="border-t border-border p-4 bg-secondary/30">
-                    {u.status === 'error' && u.error_message && (
-                      <p className="text-sm text-destructive mb-2">{u.error_message}</p>
-                    )}
-                    {u.status === 'completed' && u.extracted_data && (
-                      <div className="space-y-3">
-                        <div className="flex gap-4 text-sm">
-                          <span className="bg-primary/10 text-primary px-2 py-1 rounded">
-                            <BookOpen className="h-3 w-3 inline mr-1" />
-                            {u.extracted_data.units?.length || 0} Units
-                          </span>
-                          <span className="bg-accent/10 text-accent-foreground px-2 py-1 rounded">
-                            {(u.extracted_data.units || []).reduce((sum: number, unit: any) => sum + (unit.topics?.length || 0), 0)} Topics
-                          </span>
-                        </div>
-                        {(u.extracted_data.units || []).map((unit: any, i: number) => (
-                          <div key={i} className="ml-2">
-                            <p className="text-sm font-semibold text-foreground">
-                              {i + 1}. {unit.title}
-                            </p>
-                            <div className="ml-4 space-y-1 mt-1">
-                              {(unit.topics || []).map((topic: any, j: number) => (
-                                <p key={j} className="text-xs text-muted-foreground">
-                                  • {topic.title}
-                                  {topic.difficulty_level && (
-                                    <span className="ml-1 text-primary">({topic.difficulty_level})</span>
-                                  )}
-                                </p>
-                              ))}
-                            </div>
+                  {expandedUpload === u.id && (
+                    <div className="border-t border-border p-4 bg-secondary/30">
+                      {u.status === 'error' && u.error_message && (
+                        <p className="text-sm text-destructive mb-2">{u.error_message}</p>
+                      )}
+
+                      {(u.status === 'analyzed' || u.status === 'completed') && u.extracted_data && (
+                        <div className="space-y-4">
+                          {/* Summary badges */}
+                          <div className="flex flex-wrap gap-3 text-sm">
+                            <span className="bg-primary/10 text-primary px-2 py-1 rounded">
+                              <BookOpen className="h-3 w-3 inline mr-1" />
+                              {u.extracted_data.units?.length || 0} Units
+                            </span>
+                            <span className="bg-accent/10 text-accent-foreground px-2 py-1 rounded">
+                              {(u.extracted_data.units || []).reduce((sum: number, unit: any) => sum + (unit.topics?.length || 0), 0)} Topics
+                            </span>
+                            {u.extracted_data.grade?.name && (
+                              <span className="bg-muted text-muted-foreground px-2 py-1 rounded">
+                                {u.extracted_data.grade.name}
+                              </span>
+                            )}
+                            {u.extracted_data.subject?.name && (
+                              <span className="bg-muted text-muted-foreground px-2 py-1 rounded">
+                                {u.extracted_data.subject.name}
+                              </span>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+
+                          {/* Units & Topics detail */}
+                          {(u.extracted_data.units || []).map((unit: any, i: number) => (
+                            <div key={i} className="ml-2">
+                              <p className="text-sm font-semibold text-foreground">
+                                {i + 1}. {unit.title}
+                                {unit.estimated_hours && (
+                                  <span className="text-xs text-muted-foreground font-normal ml-2">({unit.estimated_hours}h)</span>
+                                )}
+                              </p>
+                              <div className="ml-4 space-y-1 mt-1">
+                                {(unit.topics || []).map((topic: any, j: number) => (
+                                  <div key={j} className="text-xs text-muted-foreground">
+                                    <span>• {topic.title}</span>
+                                    {topic.difficulty_level && (
+                                      <span className="ml-1 text-primary">({topic.difficulty_level})</span>
+                                    )}
+                                    {topic.learning_outcomes?.length > 0 && (
+                                      <span className="ml-1 text-muted-foreground">
+                                        · {topic.learning_outcomes.length} outcomes
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Approve button for analyzed uploads */}
+                          {u.status === 'analyzed' && (
+                            <div className="pt-3 border-t border-border">
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm text-muted-foreground">
+                                  Review the extracted curriculum above. Click approve to save to the database.
+                                </p>
+                                <Button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleApprove(u.id);
+                                  }}
+                                  disabled={approving === u.id}
+                                  className="gap-2"
+                                >
+                                  {approving === u.id ? (
+                                    <><Loader2 className="h-4 w-4 animate-spin" /> Approving...</>
+                                  ) : (
+                                    <><ShieldCheck className="h-4 w-4" /> Approve & Save</>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {u.status === 'completed' && (
+                            <div className="pt-3 border-t border-border">
+                              <p className="text-sm text-success flex items-center gap-1">
+                                <CheckCircle className="h-4 w-4" /> Approved and saved to curriculum database.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

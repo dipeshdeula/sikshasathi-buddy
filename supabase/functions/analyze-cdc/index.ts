@@ -20,7 +20,6 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) throw new Error("Missing authorization header");
 
-    // Verify user via getClaims
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || SUPABASE_SERVICE_ROLE_KEY;
     const anonClient = createClient(SUPABASE_URL, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -28,12 +27,10 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await anonClient.auth.getUser(token);
     if (claimsError || !claimsData?.user) throw new Error("Unauthorized");
-    const user = claimsData.user;
 
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { uploadId, fileContent, gradeName, subjectName } = await req.json();
-
     if (!fileContent || !uploadId) throw new Error("Missing fileContent or uploadId");
 
     // Update status to processing
@@ -119,150 +116,39 @@ IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
 
     const aiResult = await response.json();
     const content = aiResult.choices?.[0]?.message?.content || "";
-    
-    // Parse the JSON from AI response
+
     let extractedData;
     try {
-      // Try to extract JSON from possible markdown code blocks
       const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
       extractedData = JSON.parse(jsonMatch[1].trim());
     } catch (parseErr) {
-      await supabaseClient.from("cdc_uploads").update({ 
-        status: "error", 
+      await supabaseClient.from("cdc_uploads").update({
+        status: "error",
         error_message: "Failed to parse AI response. Try uploading clearer content.",
         extracted_data: { raw: content },
       }).eq("id", uploadId);
       return new Response(JSON.stringify({ error: "Parse error", raw: content }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Now persist the extracted curriculum to the database
+    // Store extracted data in cdc_uploads but do NOT write to curriculum tables yet.
+    // Teacher must approve first via the approve-cdc function.
     const gradeData = extractedData.grade;
     const subjectData = extractedData.subject;
     const unitsData = extractedData.units || [];
+    const totalTopics = unitsData.reduce((sum: number, u: any) => sum + (u.topics?.length || 0), 0);
 
-    // Upsert grade
-    let gradeId: string;
-    const { data: existingGrade } = await supabaseClient
-      .from("grades")
-      .select("id")
-      .eq("name", gradeData.name)
-      .maybeSingle();
-
-    if (existingGrade) {
-      gradeId = existingGrade.id;
-    } else {
-      const { data: newGrade } = await supabaseClient
-        .from("grades")
-        .insert({ name: gradeData.name, level: gradeData.level || "Basic", academic_year: gradeData.academic_year || "2081" })
-        .select("id")
-        .single();
-      gradeId = newGrade!.id;
-    }
-
-    // Upsert subject
-    let subjectId: string;
-    const { data: existingSubject } = await supabaseClient
-      .from("subjects")
-      .select("id")
-      .eq("name", subjectData.name)
-      .eq("grade_id", gradeId)
-      .maybeSingle();
-
-    if (existingSubject) {
-      subjectId = existingSubject.id;
-    } else {
-      const { data: newSubject } = await supabaseClient
-        .from("subjects")
-        .insert({ 
-          name: subjectData.name, code: subjectData.code || "", grade_id: gradeId,
-          is_compulsory: subjectData.is_compulsory ?? true, 
-          total_hours_per_year: subjectData.total_hours_per_year || null,
-        })
-        .select("id")
-        .single();
-      subjectId = newSubject!.id;
-    }
-
-    // Insert units, topics, and metadata
-    let totalTopics = 0;
-    for (const unit of unitsData) {
-      const { data: newUnit } = await supabaseClient
-        .from("units")
-        .insert({
-          subject_id: subjectId,
-          title: unit.title,
-          description: unit.description || "",
-          order_index: unit.order_index || 0,
-          estimated_hours: unit.estimated_hours || null,
-        })
-        .select("id")
-        .single();
-
-      if (!newUnit) continue;
-
-      for (const topic of (unit.topics || [])) {
-        const { data: newTopic } = await supabaseClient
-          .from("topics")
-          .insert({
-            unit_id: newUnit.id,
-            title: topic.title,
-            description: topic.description || "",
-            order_index: topic.order_index || 0,
-            estimated_minutes: topic.estimated_minutes || null,
-            difficulty_level: topic.difficulty_level || "Medium",
-          })
-          .select("id")
-          .single();
-
-        if (!newTopic) continue;
-        totalTopics++;
-
-        // Insert learning outcomes
-        const outcomes = (topic.learning_outcomes || []).map((lo: any) => ({
-          topic_id: newTopic.id,
-          outcome_text: lo.outcome_text,
-          bloom_level: lo.bloom_level || null,
-          competency_level: lo.competency_level || null,
-        }));
-        if (outcomes.length > 0) {
-          await supabaseClient.from("learning_outcomes").insert(outcomes);
-        }
-
-        // Insert teaching guidelines
-        const guidelines = (topic.teaching_guidelines || []).map((tg: any) => ({
-          topic_id: newTopic.id,
-          guideline_text: tg.guideline_text,
-          method_type: tg.method_type || null,
-        }));
-        if (guidelines.length > 0) {
-          await supabaseClient.from("teaching_guidelines").insert(guidelines);
-        }
-
-        // Insert assessment indicators
-        const indicators = (topic.assessment_indicators || []).map((ai: any) => ({
-          topic_id: newTopic.id,
-          indicator_text: ai.indicator_text,
-          assessment_type: ai.assessment_type || null,
-        }));
-        if (indicators.length > 0) {
-          await supabaseClient.from("assessment_indicators").insert(indicators);
-        }
-      }
-    }
-
-    // Update the upload record
     await supabaseClient.from("cdc_uploads").update({
-      status: "completed",
+      status: "analyzed",
       extracted_data: extractedData,
-      grade_name: gradeData.name,
-      subject_name: subjectData.name,
+      grade_name: gradeData?.name || null,
+      subject_name: subjectData?.name || null,
       processed_at: new Date().toISOString(),
     }).eq("id", uploadId);
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      grade: gradeData.name,
-      subject: subjectData.name,
+    return new Response(JSON.stringify({
+      success: true,
+      grade: gradeData?.name,
+      subject: subjectData?.name,
       units: unitsData.length,
       topics: totalTopics,
     }), {

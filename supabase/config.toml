@@ -3,6 +3,9 @@ project_id = "pnxaenqtiojctivughrl"
 [functions.analyze-cdc]
 verify_jwt = false
 
+[functions.approve-cdc]
+verify_jwt = false
+
 [functions.generate-lesson-plan]
 verify_jwt = false
 
