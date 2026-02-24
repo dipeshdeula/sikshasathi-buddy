@@ -1,37 +1,77 @@
 
 
-## Fix Student Roster: Create Student, Verification Status, and Class Level/Section
+## Save AI Coach Chat History and Allow New Chats
 
-### Problems Identified
+### Overview
+Add persistent chat history for the AI Coach so students can revisit past conversations and start new ones. This requires two new database tables and a redesigned AICoach UI with a conversation sidebar.
 
-1. **Create Student button**: The `handleCreateStudent` function correctly calls the `create-student` edge function, but the edge function may fail silently. The button label needs renaming to "Create New Student".
+### Step 1: Database Migration
+Create two new tables:
 
-2. **Class Level & Section not passed**: The `newClassLevel` and `newSection` state values are sent to the edge function but use empty string which gets converted to `undefined` -- this is actually correct. However, the `useClassStudents` hook joins via `profiles!class_students_student_id_fkey` which may fail if there's no explicit foreign key with that name. This could cause the enrolled student list to be empty.
+```text
+coach_conversations
+  - id (uuid, PK)
+  - student_id (uuid, NOT NULL)
+  - topic_id (uuid, nullable)
+  - title (text, NOT NULL, default 'New Chat')
+  - created_at (timestamptz)
+  - updated_at (timestamptz)
 
-3. **Pending Verification as separate component**: Instead of showing pending students in a separate section, the user wants all students (verified and unverified) displayed together with their `is_verified` status shown inline.
+coach_messages
+  - id (uuid, PK)
+  - conversation_id (uuid, NOT NULL, FK -> coach_conversations)
+  - role (text, NOT NULL) -- 'user' or 'coach'
+  - content (text, NOT NULL)
+  - hints (jsonb, nullable)
+  - practice_questions (jsonb, nullable)
+  - created_at (timestamptz)
+```
 
-### Changes
+RLS policies:
+- Students can SELECT, INSERT, UPDATE, DELETE their own conversations (`student_id = auth.uid()`)
+- Students can SELECT, INSERT their own messages (via join to conversation's `student_id`)
 
-#### 1. `src/hooks/use-supabase-data.ts` - Fix `useClassStudents` hook
-- Update the join query to also return `is_verified`, `preferred_class_level`, and `preferred_section` from profiles
-- Return these fields so the roster table can display verification status
+### Step 2: Update AICoach UI (`src/pages/student/AICoach.tsx`)
 
-#### 2. `src/pages/teacher/StudentRoster.tsx` - Major refactor
-- **Rename** "Create & Add to Class" button to "Create New Student"
-- **Remove** the separate "Pending Verification" section
-- **Merge** pending (unverified) students into the main student table with a verification status badge (Verified / Pending)
-- **Add** Edit and Verify action buttons inline in the table for each student
-- **Show** class level and section columns in the table
-- Add a **Verify** button for unverified students directly in the actions column
-- Keep the **View** (metrics modal), **Edit**, and **Delete** actions
-- Ensure `newClassLevel` and `newSection` are properly passed and reset after creation
+Redesign the page layout:
 
-#### 3. `supabase/functions/list-pending-students/index.ts` - Keep as-is
-- Still needed to fetch unverified students who aren't yet assigned to any class
+```text
++------------------+-----------------------------------+
+| Conversation     |  Chat Area                        |
+| Sidebar          |                                   |
+|                  |  [Topic selector]                 |
+| [+ New Chat]     |                                   |
+|                  |  Messages...                      |
+| - Chat title 1   |                                   |
+| - Chat title 2   |                                   |
+| - Chat title 3   |  [Input] [Send] [Show Answer]     |
++------------------+-----------------------------------+
+```
+
+Key behaviors:
+- **New Chat button**: Creates a new `coach_conversations` row, clears the message area
+- **Conversation list**: Fetches all conversations for the student, ordered by `updated_at DESC`
+- **Selecting a conversation**: Loads its messages from `coach_messages`, restores the topic
+- **Sending a message**: Inserts the user message into `coach_messages`, calls the AI, inserts the coach response
+- **Auto-title**: After the first exchange, update the conversation title to include the topic name and first question snippet
+- **Delete conversation**: Allow removing old chats
+
+### Step 3: Message Persistence Logic
+
+When `askCoach()` is called:
+1. If no active conversation exists, create one in `coach_conversations`
+2. Insert user message into `coach_messages`
+3. Call AI service (existing `generateCoachResponse`)
+4. Insert coach response into `coach_messages` (with hints/practice_questions as JSONB)
+5. Update `coach_conversations.updated_at`
+
+When `showAnswer()` is called:
+1. Same flow -- insert the "show answer" request and response as messages
 
 ### Technical Details
 
-- The main table will combine two data sources: enrolled students from `useClassStudents` (with verification status from profiles) + pending unverified students from the edge function
-- Each row will show: Name, Class Level, Section, Verified status badge, Mastery, Quizzes, Challenges, Badges, Actions (View/Edit/Verify/Delete)
-- The Create Student dialog already has class level and section dropdowns -- just need to ensure the state flows correctly and rename the button
+- No changes needed to the edge function (`generate-coach-response`) -- it already works
+- Conversation history sent to the AI will be loaded from `coach_messages` instead of in-memory state
+- The sidebar will use a simple `useEffect` fetch on mount, re-fetched after creating/deleting conversations
+- Mobile: sidebar collapses into a sheet/drawer triggered by a menu button
 
