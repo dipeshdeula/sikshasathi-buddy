@@ -42,7 +42,7 @@ const AICoach = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
 
-  const topic = topics.find(t => t.id === topicId);
+  const topic = topicId && topicId !== '__none__' ? topics.find(t => t.id === topicId) : null;
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -82,7 +82,7 @@ const AICoach = () => {
   useEffect(() => {
     if (activeConvoId) {
       const convo = conversations.find(c => c.id === activeConvoId);
-      if (convo?.topic_id) setTopicId(convo.topic_id);
+      setTopicId(convo?.topic_id || '');
     }
   }, [activeConvoId, conversations]);
 
@@ -113,7 +113,7 @@ const AICoach = () => {
     if (activeConvoId) return activeConvoId;
     const { data, error } = await supabase
       .from('coach_conversations')
-      .insert({ student_id: user!.id, topic_id: topicId || null, title: 'New Chat' })
+      .insert({ student_id: user!.id, topic_id: (topicId && topicId !== '__none__' ? topicId : null), title: 'New Chat' })
       .select('id')
       .single();
     if (error || !data) throw new Error('Failed to create conversation');
@@ -124,7 +124,7 @@ const AICoach = () => {
   };
 
   const askCoach = async () => {
-    if (!input.trim() || !topic) return;
+    if (!input.trim()) return;
     const question = input;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: question }]);
@@ -140,7 +140,7 @@ const AICoach = () => {
       });
 
       const resp = await aiService.generateCoachResponse({
-        topic: topic.title,
+        topic: topic?.title || 'General',
         question,
         conversationHistory: messages.map(m => ({ role: m.role, content: m.content })),
       });
@@ -156,7 +156,8 @@ const AICoach = () => {
       const isFirst = messages.filter(m => m.role === 'user').length === 0;
       const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
       if (isFirst) {
-        updates.title = `${topic.title}: ${question.slice(0, 40)}${question.length > 40 ? '…' : ''}`;
+        const prefix = topic ? `${topic.title}: ` : '';
+        updates.title = `${prefix}${question.slice(0, 50)}${question.length > 50 ? '…' : ''}`;
       }
       await supabase.from('coach_conversations').update(updates).eq('id', convoId);
       fetchConversations();
@@ -171,13 +172,12 @@ const AICoach = () => {
     sendingRef.current = false;
     await supabase.from('audit_logs').insert({
       actor_user_id: user?.id || null, action: 'coach_question',
-      entity_type: 'ai_coach', entity_id: topicId,
+      entity_type: 'ai_coach', entity_id: topicId || null,
       metadata_json: { question },
     });
   };
 
   const showAnswer = async () => {
-    if (!topic) return;
     setLoading(true);
     sendingRef.current = true;
     try {
@@ -188,7 +188,7 @@ const AICoach = () => {
       await supabase.from('coach_messages').insert({ conversation_id: convoId, role: 'user', content: requestContent });
 
       const resp = await aiService.generateCoachResponse({
-        topic: topic.title,
+        topic: topic?.title || 'General',
         question: requestContent,
         showAnswer: true,
         conversationHistory: messages.map(m => ({ role: m.role, content: m.content })),
@@ -208,7 +208,7 @@ const AICoach = () => {
     sendingRef.current = false;
     await supabase.from('audit_logs').insert({
       actor_user_id: user?.id || null, action: 'coach_show_answer',
-      entity_type: 'ai_coach', entity_id: topicId,
+      entity_type: 'ai_coach', entity_id: topicId || null,
     });
   };
 
@@ -283,8 +283,11 @@ const AICoach = () => {
           </div>
           <div className="w-48 shrink-0">
             <Select value={topicId} onValueChange={setTopicId}>
-              <SelectTrigger className="truncate"><SelectValue placeholder="Pick topic" /></SelectTrigger>
-              <SelectContent>{topics.map(t => <SelectItem key={t.id} value={t.id} className="max-w-[250px] truncate">{t.title}</SelectItem>)}</SelectContent>
+              <SelectTrigger className="truncate"><SelectValue placeholder="Any topic" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__" className="text-muted-foreground">No specific topic</SelectItem>
+                {topics.map(t => <SelectItem key={t.id} value={t.id} className="max-w-[250px] truncate">{t.title}</SelectItem>)}
+              </SelectContent>
             </Select>
           </div>
         </div>
@@ -294,7 +297,7 @@ const AICoach = () => {
           {messages.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
               <Bot className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Select a topic and ask a question to get started!</p>
+              <p className="text-sm">Ask me anything! Optionally pick a topic for focused help.</p>
             </div>
           )}
           {messages.map((m, i) => (
@@ -338,13 +341,13 @@ const AICoach = () => {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && askCoach()}
-            placeholder={topic ? `Ask about ${topic.title}…` : 'Select a topic first'}
-            disabled={!topicId || loading}
+            placeholder={topic ? `Ask about ${topic.title}…` : 'Ask me anything…'}
+            disabled={loading}
           />
-          <Button onClick={askCoach} disabled={!topicId || !input.trim() || loading} size="icon">
+          <Button onClick={askCoach} disabled={!input.trim() || loading} size="icon">
             <Send className="h-4 w-4" />
           </Button>
-          <Button onClick={showAnswer} variant="outline" size="icon" disabled={!topicId || messages.length === 0 || loading} title="Show Answer">
+          <Button onClick={showAnswer} variant="outline" size="icon" disabled={messages.length === 0 || loading} title="Show Answer">
             <Eye className="h-4 w-4" />
           </Button>
         </div>
