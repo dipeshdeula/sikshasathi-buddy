@@ -25,6 +25,7 @@ const navItems: Record<string, { label: string; icon: ReactNode; path: string }[
   student: [
     { label: 'Home', icon: <Home className="h-5 w-5" />, path: '/student' },
     { label: 'AI Coach', icon: <Bot className="h-5 w-5" />, path: '/student/coach' },
+    { label: 'Quizzes', icon: <FileQuestion className="h-5 w-5" />, path: '/student/quizzes' },
     { label: 'Challenges', icon: <Trophy className="h-5 w-5" />, path: '/student/challenges' },
     { label: 'Presentations', icon: <Presentation className="h-5 w-5" />, path: '/student/presentations' },
     { label: 'Check-in', icon: <SmilePlus className="h-5 w-5" />, path: '/student/checkin' },

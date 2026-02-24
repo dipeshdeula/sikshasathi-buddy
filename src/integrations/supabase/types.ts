@@ -137,9 +137,11 @@ export type Database = {
       challenge_submissions: {
         Row: {
           answer_text: string
+          attachment_url: string | null
           challenge_id: string
           id: string
           is_winner: boolean
+          reaction_score: number | null
           review_text: string | null
           reviewed_at: string | null
           student_id: string
@@ -147,9 +149,11 @@ export type Database = {
         }
         Insert: {
           answer_text: string
+          attachment_url?: string | null
           challenge_id: string
           id?: string
           is_winner?: boolean
+          reaction_score?: number | null
           review_text?: string | null
           reviewed_at?: string | null
           student_id: string
@@ -157,9 +161,11 @@ export type Database = {
         }
         Update: {
           answer_text?: string
+          attachment_url?: string | null
           challenge_id?: string
           id?: string
           is_winner?: boolean
+          reaction_score?: number | null
           review_text?: string | null
           reviewed_at?: string | null
           student_id?: string
@@ -660,6 +666,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           id: string
+          is_published: boolean
           title: string
           topic_id: string | null
         }
@@ -668,6 +675,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          is_published?: boolean
           title: string
           topic_id?: string | null
         }
@@ -676,6 +684,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          is_published?: boolean
           title?: string
           topic_id?: string | null
         }
