@@ -248,24 +248,30 @@ export type Database = {
       }
       classes: {
         Row: {
+          class_level: string | null
           created_at: string | null
           grade_id: string | null
           id: string
           name: string
+          section: string | null
           teacher_id: string | null
         }
         Insert: {
+          class_level?: string | null
           created_at?: string | null
           grade_id?: string | null
           id?: string
           name: string
+          section?: string | null
           teacher_id?: string | null
         }
         Update: {
+          class_level?: string | null
           created_at?: string | null
           grade_id?: string | null
           id?: string
           name?: string
+          section?: string | null
           teacher_id?: string | null
         }
         Relationships: [

@@ -20,7 +20,6 @@ const navItems: Record<string, { label: string; icon: ReactNode; path: string }[
     { label: 'Results Entry', icon: <ClipboardList className="h-5 w-5" />, path: '/teacher/results' },
     { label: 'Students', icon: <Users className="h-5 w-5" />, path: '/teacher/students' },
     { label: 'Mastery', icon: <BarChart3 className="h-5 w-5" />, path: '/teacher/mastery' },
-    { label: 'KPI Dashboard', icon: <PieChart className="h-5 w-5" />, path: '/teacher/kpi' },
     { label: 'Weekly Reports', icon: <FileText className="h-5 w-5" />, path: '/teacher/reports' },
   ],
   student: [
