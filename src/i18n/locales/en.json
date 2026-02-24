@@ -1,0 +1,87 @@
+{
+  "brand": "NAVO.AI",
+  "brandFull": "NAVO A.I",
+  "tagline": "Redefining the Future of Learning",
+  "taglineNepali": "शिक्षामा नयाँ आयाम",
+  "nav": {
+    "login": "Log in",
+    "getStarted": "Get Started",
+    "signOut": "Sign out",
+    "panel": "{{role}} Panel"
+  },
+  "hero": {
+    "chip": "🇳🇵 Built for Nepal Schools • Offline-First",
+    "headline": "NAVO A.I",
+    "slogan": "Redefining the Future of Learning",
+    "subtext": "Teacher-first copilot that creates CDC-aligned lessons, tracks learning gaps + wellbeing, and sends weekly parent insights.",
+    "bullet1": "CDC lesson plans + exit quizzes, fast and helpful",
+    "bullet2": "Identify weak topics + wellbeing patterns early",
+    "bullet3": "Weekly parent snapshot with simple interventions",
+    "ctaPrimary": "Start Free",
+    "ctaSecondary": "Demo Login",
+    "ctaScroll": "See how it works ↓"
+  },
+  "features": {
+    "title": "Everything your classroom needs",
+    "cdcTitle": "CDC-Aligned Lessons",
+    "cdcDesc": "Generate lesson plans, scripts, and boardwork aligned to Nepal curriculum.",
+    "aiTitle": "AI Learning Coach",
+    "aiDesc": "Students get step-by-step hints — never direct answers. Safe & supportive.",
+    "masteryTitle": "Mastery Tracking",
+    "masteryDesc": "See which topics need attention. No public leaderboards, just growth.",
+    "safeTitle": "Safe & Private",
+    "safeDesc": "Strict RBAC. Parents see only approved reports. Student data is protected.",
+    "offlineTitle": "Offline Tolerant",
+    "offlineDesc": "Works on slow internet. Cached content available even without connection."
+  },
+  "stats": {
+    "title": "Reshaping School Education with AI",
+    "subtitle": "NAVO.AI brings together teachers, students, and parents in a unified ecosystem powered by intelligent tools.",
+    "stat1Label": "Teacher Hours Saved",
+    "stat1Value": "10+",
+    "stat1Desc": "hours saved per week on lesson planning and assessment",
+    "stat2Label": "Student Engagement",
+    "stat2Value": "3×",
+    "stat2Desc": "improvement in student participation with AI coaching",
+    "stat3Label": "School Happiness Index",
+    "stat3Value": "85%",
+    "stat3Desc": "average wellbeing score across NAVO-powered schools",
+    "stat4Label": "Parent Visibility",
+    "stat4Value": "100%",
+    "stat4Desc": "of parents receive weekly learning & wellbeing insights"
+  },
+  "cta": {
+    "title": "Ready to transform your classroom?",
+    "subtitle": "Join teachers across Nepal using NAVO.AI to save time and help every student succeed.",
+    "button": "Get Started Now"
+  },
+  "footer": {
+    "copy": "© 2026 NAVO.AI. Built with ❤️ for Nepal schools."
+  },
+  "login": {
+    "title": "Welcome back",
+    "subtitle": "Sign in to NAVO.AI",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "noAccount": "Don't have an account?",
+    "register": "Register"
+  },
+  "register": {
+    "title": "Create account",
+    "subtitle": "Join NAVO.AI",
+    "name": "Full Name",
+    "email": "Email",
+    "password": "Password",
+    "role": "I am a…",
+    "submit": "Create Account",
+    "submitting": "Creating…",
+    "hasAccount": "Already have an account?",
+    "login": "Sign in",
+    "studentNote": "Student accounts require teacher verification before first login."
+  },
+  "sidebar": {
+    "brand": "NAVO.AI"
+  }
+}
