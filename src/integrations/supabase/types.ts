@@ -297,6 +297,79 @@ export type Database = {
           },
         ]
       }
+      coach_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          student_id: string
+          title: string
+          topic_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          student_id: string
+          title?: string
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          student_id?: string
+          title?: string
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_conversations_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          hints: Json | null
+          id: string
+          practice_questions: Json | null
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          hints?: Json | null
+          id?: string
+          practice_questions?: Json | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          hints?: Json | null
+          id?: string
+          practice_questions?: Json | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "coach_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grades: {
         Row: {
           academic_year: string | null
