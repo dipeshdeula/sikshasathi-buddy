@@ -65,7 +65,17 @@
     "role5": "UX Designer"
   },
   "footer": {
-    "copy": "© 2026 NAVO.AI. Built with ❤️ for Nepal schools."
+    "tagline": "AI-powered copilot for Nepal's schools — helping teachers teach, students learn, and parents stay connected.",
+    "quickLinks": "Quick Links",
+    "features": "Features",
+    "forSchools": "For Schools",
+    "cdcAligned": "CDC-Aligned Curriculum",
+    "offlineReady": "Offline-Ready Platform",
+    "parentReports": "Weekly Parent Reports",
+    "contact": "Contact",
+    "location": "Kathmandu, Nepal",
+    "copy": "© 2026 NAVO.AI. All rights reserved.",
+    "madeWith": "Made with ❤️ for Nepal schools"
   },
   "login": {
     "title": "Welcome back",

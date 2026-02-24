@@ -355,9 +355,54 @@ const Landing = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="max-w-6xl mx-auto px-4 text-center text-sm text-muted-foreground">
-          {t('footer.copy')}
+      <footer className="border-t border-border bg-card">
+        <div className="max-w-6xl mx-auto px-4 py-12">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+            {/* Brand */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-8 w-8 rounded-lg gradient-accent flex items-center justify-center">
+                  <GraduationCap className="h-4 w-4 text-accent-foreground" />
+                </div>
+                <span className="text-lg font-bold text-foreground">NAVO.AI</span>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t('footer.tagline')}</p>
+            </div>
+
+            {/* Quick Links */}
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-3">{t('footer.quickLinks')}</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><button onClick={scrollToFeatures} className="hover:text-primary transition-colors">{t('footer.features')}</button></li>
+                <li><Link to="/login" className="hover:text-primary transition-colors">{t('nav.login')}</Link></li>
+                <li><Link to="/register" className="hover:text-primary transition-colors">{t('nav.getStarted')}</Link></li>
+              </ul>
+            </div>
+
+            {/* For Schools */}
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-3">{t('footer.forSchools')}</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li>{t('footer.cdcAligned')}</li>
+                <li>{t('footer.offlineReady')}</li>
+                <li>{t('footer.parentReports')}</li>
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-3">{t('footer.contact')}</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li>📧 hello@navo.ai</li>
+                <li>📍 {t('footer.location')}</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">{t('footer.copy')}</p>
+            <p className="text-xs text-muted-foreground">{t('footer.madeWith')}</p>
+          </div>
         </div>
       </footer>
     </div>
