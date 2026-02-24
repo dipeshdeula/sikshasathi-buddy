@@ -22,7 +22,7 @@ import WeeklyReports from "./pages/teacher/WeeklyReports";
 import CDCUpload from "./pages/teacher/CDCUpload";
 import TeacherChallenges from "./pages/teacher/Challenges";
 import StudentRoster from "./pages/teacher/StudentRoster";
-import KPIDashboard from "./pages/teacher/KPIDashboard";
+// KPI is now integrated into main Dashboard
 import Presentations from "./pages/teacher/Presentations";
 
 // Student
@@ -87,7 +87,7 @@ const AppRoutes = () => (
       <Route path="/teacher/cdc-upload" element={<ProtectedRoute allowedRoles={['teacher']}><CDCUpload /></ProtectedRoute>} />
       <Route path="/teacher/challenges" element={<ProtectedRoute allowedRoles={['teacher']}><TeacherChallenges /></ProtectedRoute>} />
       <Route path="/teacher/students" element={<ProtectedRoute allowedRoles={['teacher']}><StudentRoster /></ProtectedRoute>} />
-      <Route path="/teacher/kpi" element={<ProtectedRoute allowedRoles={['teacher']}><KPIDashboard /></ProtectedRoute>} />
+      {/* KPI integrated into main dashboard */}
       <Route path="/teacher/presentations" element={<ProtectedRoute allowedRoles={['teacher']}><Presentations /></ProtectedRoute>} />
 
       {/* Student routes */}

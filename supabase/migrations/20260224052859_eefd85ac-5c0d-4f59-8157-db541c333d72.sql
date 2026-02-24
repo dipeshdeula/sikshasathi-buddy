@@ -1,0 +1,3 @@
+
+ALTER TABLE public.classes ADD COLUMN IF NOT EXISTS section text DEFAULT NULL;
+ALTER TABLE public.classes ADD COLUMN IF NOT EXISTS class_level text DEFAULT NULL;
