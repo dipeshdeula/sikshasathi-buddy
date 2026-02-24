@@ -1,45 +1,61 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useTeacherClasses, useClassStudents, useClassReports, useStudentMastery, useTopics } from '@/hooks/use-supabase-data';
+import { useTeacherClasses, useClassStudents, useClassReports, useTopics } from '@/hooks/use-supabase-data';
 import { aiService } from '@/lib/ai-service';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles, Check, Send } from 'lucide-react';
+import { Sparkles, Check, Send, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const WeeklyReports = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { data: classes } = useTeacherClasses(user?.id);
-  const classId = classes[0]?.id || '';
-  const { data: students } = useClassStudents(classId);
-  const { data: reports, refetch: refetchReports } = useClassReports(classId);
+  const { data: classes, loading: classesLoading } = useTeacherClasses(user?.id);
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const classId = selectedClassId || classes[0]?.id || '';
+  const { data: students, loading: studentsLoading } = useClassStudents(classId);
+  const { data: reports, refetch: refetchReports, loading: reportsLoading } = useClassReports(classId);
   const { data: topics } = useTopics();
   const [generating, setGenerating] = useState(false);
 
-  const generateAll = async () => {
-    setGenerating(true);
-    for (const s of students) {
-      // Fetch mastery for each student
-      const { data: masteryData } = await supabase.from('mastery_states').select('*').eq('student_id', s.id);
-      const scores: Record<string, number> = {};
-      (masteryData || []).forEach((m: any) => {
-        const t = topics.find(tp => tp.id === m.topic_id);
-        if (t) scores[t.title] = m.mastery_score;
-      });
+  // Auto-select first class when loaded
+  if (!selectedClassId && classes.length > 0) {
+    setSelectedClassId(classes[0].id);
+  }
 
-      const result = await aiService.generateWeeklyReport({ studentName: s.name, masteryScores: scores });
-      await supabase.from('weekly_reports').insert({
-        class_id: classId, student_id: s.id,
-        week_start: new Date().toISOString().split('T')[0],
-        report_text: result.reportText,
-        interventions_text: result.interventionsText,
-        status: 'draft',
-      });
+  const generateAll = async () => {
+    if (!classId || students.length === 0) {
+      toast({ title: 'No students found in this class', variant: 'destructive' });
+      return;
     }
-    setGenerating(false);
-    refetchReports();
-    toast({ title: `Generated reports for ${students.length} students!` });
+    setGenerating(true);
+    try {
+      for (const s of students) {
+        const { data: masteryData } = await supabase.from('mastery_states').select('*').eq('student_id', s.id);
+        const scores: Record<string, number> = {};
+        (masteryData || []).forEach((m: any) => {
+          const t = topics.find(tp => tp.id === m.topic_id);
+          if (t) scores[t.title] = m.mastery_score;
+        });
+
+        const result = await aiService.generateWeeklyReport({ studentName: s.name, masteryScores: scores });
+        await supabase.from('weekly_reports').insert({
+          class_id: classId, student_id: s.id,
+          week_start: new Date().toISOString().split('T')[0],
+          report_text: result.reportText,
+          interventions_text: result.interventionsText,
+          status: 'draft',
+        });
+      }
+      toast({ title: `Generated reports for ${students.length} students!` });
+    } catch (e) {
+      console.error('Report generation failed:', e);
+      toast({ title: 'Failed to generate reports', variant: 'destructive' });
+    } finally {
+      setGenerating(false);
+      refetchReports();
+    }
   };
 
   const approve = async (id: string) => {
@@ -58,16 +74,45 @@ const WeeklyReports = () => {
     toast({ title: 'SMS-ready report sent (simulated)' });
   };
 
+  const isLoading = classesLoading || studentsLoading || reportsLoading;
+
   return (
     <div className="animate-fade-in space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-foreground">Weekly Reports</h1>
-        <Button onClick={generateAll} disabled={generating} className="gap-2">
-          <Sparkles className="h-4 w-4" /> {generating ? 'Generating…' : 'Generate All'}
-        </Button>
+        <div className="flex items-center gap-3">
+          {classes.length > 1 && (
+            <Select value={classId} onValueChange={setSelectedClassId}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select class" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button onClick={generateAll} disabled={generating || isLoading || students.length === 0} className="gap-2">
+            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {generating ? 'Generating…' : 'Generate All'}
+          </Button>
+        </div>
       </div>
 
-      {reports.length === 0 && <p className="text-muted-foreground text-sm">No reports yet. Click "Generate All" to create draft reports.</p>}
+      {isLoading && <p className="text-muted-foreground text-sm">Loading…</p>}
+
+      {!isLoading && classes.length === 0 && (
+        <p className="text-muted-foreground text-sm">No classes assigned. Please contact your administrator.</p>
+      )}
+
+      {!isLoading && classId && students.length === 0 && (
+        <p className="text-muted-foreground text-sm">No students enrolled in this class yet.</p>
+      )}
+
+      {!isLoading && reports.length === 0 && students.length > 0 && (
+        <p className="text-muted-foreground text-sm">No reports yet. Click "Generate All" to create draft reports for {students.length} students.</p>
+      )}
 
       <div className="space-y-3">
         {reports.map(r => {
