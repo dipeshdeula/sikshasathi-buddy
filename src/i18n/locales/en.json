@@ -55,6 +55,15 @@
     "subtitle": "Join teachers across Nepal using NAVO.AI to save time and help every student succeed.",
     "button": "Get Started Now"
   },
+  "team": {
+    "title": "Meet the Team Behind NAVO.AI",
+    "subtitle": "A passionate team of educators, engineers, and designers dedicated to transforming Nepal's classrooms.",
+    "role1": "Project Lead",
+    "role2": "AI Engineer",
+    "role3": "Curriculum Designer",
+    "role4": "Full-Stack Developer",
+    "role5": "UX Designer"
+  },
   "footer": {
     "copy": "© 2026 NAVO.AI. Built with ❤️ for Nepal schools."
   },
