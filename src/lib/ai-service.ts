@@ -78,13 +78,14 @@ export const aiService = {
     studentName: string;
     masteryScores: Record<string, number>;
   }): Promise<{ reportText: string; interventionsText: string }> {
-    // Keep this as a simple template for now since it's simpler
-    const weakTopics = Object.entries(params.masteryScores).filter(([, s]) => s < 60).map(([t]) => t);
+    const { data, error } = await supabase.functions.invoke('generate-weekly-report', {
+      body: params,
+    });
+    if (error) throw new Error(error.message || 'Failed to generate weekly report');
+    if (data?.error) throw new Error(data.error);
     return {
-      reportText: `Weekly Progress Report for ${params.studentName}:\n\nGood effort this week. ${weakTopics.length > 0 ? `Areas needing practice: ${weakTopics.join(', ')}.` : 'All topics progressing well!'}`,
-      interventionsText: weakTopics.length > 0
-        ? `1. Practice ${weakTopics[0]} for 15 minutes daily.\n2. Ask your child to explain what they learned.`
-        : `1. Continue regular reading.\n2. Try challenge problems.`,
+      reportText: data.reportText || '',
+      interventionsText: data.interventionsText || '',
     };
   },
 
