@@ -34,9 +34,9 @@ const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--wa
 
 const TeacherDashboard = () => {
   const { user } = useAuth();
-  const { data: classes } = useTeacherClasses(user?.id);
+  const { data: classes, loading: classesLoading } = useTeacherClasses(user?.id);
   const classId = classes[0]?.id;
-  const { data: students } = useClassStudents(classId);
+  const { data: students, loading: studentsLoading } = useClassStudents(classId);
   const { data: lessons } = useTeacherLessonPlans(user?.id);
   const { data: quizzes } = useClassQuizzes(classId);
   const { data: checkins } = useClassCheckins(classId);
@@ -97,6 +97,17 @@ const TeacherDashboard = () => {
   }, [user?.id, classId, lessons.length, students.length, quizzes.length]);
 
   if (!user) return null;
+
+  if (classesLoading || studentsLoading) {
+    return (
+      <div className="animate-fade-in flex items-center justify-center py-20">
+        <div className="text-center space-y-2">
+          <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading dashboard…</p>
+        </div>
+      </div>
+    );
+  }
 
   // KPI calculations
   const avgMastery = mastery.length > 0 ? Math.round(mastery.reduce((s, m) => s + m.masteryScore, 0) / mastery.length) : 0;

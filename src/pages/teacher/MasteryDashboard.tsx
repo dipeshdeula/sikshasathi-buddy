@@ -9,9 +9,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 const MasteryDashboard = () => {
   const { user } = useAuth();
-  const { data: classes } = useTeacherClasses(user?.id);
+  const { data: classes, loading: classesLoading } = useTeacherClasses(user?.id);
   const classId = classes[0]?.id || '';
-  const { data: students } = useClassStudents(classId);
+  const { data: students, loading: studentsLoading } = useClassStudents(classId);
   const { data: topics } = useTopics();
   const { data: mastery } = useClassMastery(classId);
   const { data: checkins } = useClassCheckins(classId);
@@ -57,6 +57,17 @@ const MasteryDashboard = () => {
 
   // Radar data for top topics
   const radarData = topicAvgs.filter(t => t.avg > 0).slice(-6).map(t => ({ topic: t.name, mastery: t.avg }));
+
+  if (classesLoading || studentsLoading) {
+    return (
+      <div className="animate-fade-in flex items-center justify-center py-20">
+        <div className="text-center space-y-2">
+          <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading mastery data…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in space-y-6">
