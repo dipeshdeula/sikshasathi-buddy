@@ -71,10 +71,11 @@ const Landing = () => {
       <nav className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-lg gradient-accent flex items-center justify-center">
-              <GraduationCap className="h-5 w-5 text-accent-foreground" />
-            </div>
-            <span className="text-xl font-bold text-foreground">NAVO.AI</span>
+            {/* <div className="h-9 w-9 rounded-lg gradient-accent flex items-center justify-center">
+              <img src="../assets/logo.png" alt="Logo" className="h-5 w-5" />
+            </div> */}
+            <img src="/src/assets/logo.png" alt="Logo" className="h-5 w-5" />
+            <span className="text-xl font-bold text-foreground">Navo.AI</span>
           </div>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />

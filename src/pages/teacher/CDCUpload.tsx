@@ -157,16 +157,16 @@ const CDCUpload = () => {
     <div className="animate-fade-in space-y-6 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Upload className="h-6 w-6 text-primary" /> Upload CDC Curriculum
+          <Upload className="h-6 w-6 text-primary" /> Upload Curriculum
         </h1>
         <p className="text-muted-foreground">
-          Upload or paste CDC curriculum content. AI will extract the structure — you review and approve before saving.
+          Upload or paste curriculum content. AI will extract the structure — you review and approve before saving.
         </p>
       </div>
 
       {/* Upload Form */}
       <div className="bg-card rounded-xl border border-border p-6 shadow-card space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">New CDC Upload</h2>
+        <h2 className="text-lg font-semibold text-foreground">New Curriculum Upload</h2>
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
