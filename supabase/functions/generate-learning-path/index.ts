@@ -99,9 +99,29 @@ IMPORTANT: Return ONLY valid JSON, no markdown fences.`;
 
     let parsed;
     try {
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
-      parsed = JSON.parse(jsonMatch[1].trim());
-    } catch {
+      // Strip markdown fences if present
+      let cleaned = content
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      // Find JSON boundaries
+      const jsonStart = cleaned.search(/[\{\[]/);
+      const jsonEnd = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'));
+
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("No JSON found");
+
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+
+      // Fix common issues
+      cleaned = cleaned
+        .replace(/,\s*}/g, "}")
+        .replace(/,\s*]/g, "]")
+        .replace(/[\x00-\x1F\x7F]/g, (ch) => ch === '\n' || ch === '\t' ? ch : "");
+
+      parsed = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.error("JSON parse failed:", parseErr, "Raw content:", content.substring(0, 500));
       parsed = { error: "Failed to parse AI response" };
     }
 
