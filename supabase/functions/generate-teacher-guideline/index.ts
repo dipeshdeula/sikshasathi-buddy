@@ -9,8 +9,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
 
     const { subject, topic, unit, classLevel, teachingGuidelines, assessmentIndicators } = await req.json();
 
@@ -41,14 +41,14 @@ IMPORTANT: Return ONLY valid JSON, no markdown code blocks.`;
 ${teachingGuidelines?.length ? `- CDC Teaching Guidelines:\n${teachingGuidelines.map((g: string) => `  • ${g}`).join('\n')}` : ''}
 ${assessmentIndicators?.length ? `- Assessment Indicators:\n${assessmentIndicators.map((a: string) => `  • ${a}`).join('\n')}` : ''}`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "openai/gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
