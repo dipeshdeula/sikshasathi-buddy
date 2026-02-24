@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Trash2, GraduationCap, X, Check } from 'lucide-react';
+import { Plus, Loader2, Trash2, GraduationCap, X, Check, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -125,14 +125,20 @@ const MultiSubjectSelect = ({
   );
 };
 
+interface StudentOption { id: string; name: string }
+
 const AdminClasses = () => {
   const { toast } = useToast();
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [allStudents, setAllStudents] = useState<StudentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [studentDialogClassId, setStudentDialogClassId] = useState<string | null>(null);
+  const [classStudentIds, setClassStudentIds] = useState<string[]>([]);
+  const [studentSearch, setStudentSearch] = useState('');
 
   const [form, setForm] = useState({ name: '', classLevel: '', section: '', teacherId: '', subjectIds: [] as string[] });
 
@@ -143,11 +149,13 @@ const AdminClasses = () => {
       { data: teacherProfiles },
       { data: subjectData },
       { data: csData },
+      { data: studentRoles },
     ] = await Promise.all([
       supabase.from('classes').select('id, name, class_level, section, teacher_id'),
       supabase.from('user_roles').select('user_id').eq('role', 'TEACHER'),
       supabase.from('subjects').select('id, name').order('name'),
       supabase.from('class_subjects').select('class_id, subject_id'),
+      supabase.from('user_roles').select('user_id').eq('role', 'STUDENT'),
     ]);
 
     const teacherIds = (teacherProfiles || []).map(t => t.user_id);
@@ -157,11 +165,19 @@ const AdminClasses = () => {
       teacherList = (profiles || []).map(p => ({ id: p.id, name: p.full_name }));
     }
 
+    // Fetch all students
+    const studentUserIds = (studentRoles || []).map(s => s.user_id);
+    let studentList: StudentOption[] = [];
+    if (studentUserIds.length > 0) {
+      const { data: sProfiles } = await supabase.from('profiles').select('id, full_name').in('id', studentUserIds);
+      studentList = (sProfiles || []).map(p => ({ id: p.id, name: p.full_name }));
+    }
+    setAllStudents(studentList);
+
     const { data: studentCounts } = await supabase.from('class_students').select('class_id');
     const countMap: Record<string, number> = {};
     (studentCounts || []).forEach(s => { countMap[s.class_id] = (countMap[s.class_id] || 0) + 1; });
 
-    // Build class-subjects map
     const classSubMap: Record<string, string[]> = {};
     (csData || []).forEach((cs: any) => {
       if (!classSubMap[cs.class_id]) classSubMap[cs.class_id] = [];
@@ -245,6 +261,28 @@ const AdminClasses = () => {
     const { error } = await supabase.from('classes').delete().eq('id', classId);
     if (error) { toast({ title: 'Delete failed', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Class deleted' });
+    fetchAll();
+  };
+
+  const openStudentDialog = async (classId: string) => {
+    setStudentDialogClassId(classId);
+    setStudentSearch('');
+    const { data } = await supabase.from('class_students').select('student_id').eq('class_id', classId);
+    setClassStudentIds((data || []).map((d: any) => d.student_id));
+  };
+
+  const addStudentToClass = async (studentId: string) => {
+    if (!studentDialogClassId) return;
+    const { error } = await supabase.from('class_students').insert({ class_id: studentDialogClassId, student_id: studentId });
+    if (error) { toast({ title: 'Failed to add student', description: error.message, variant: 'destructive' }); return; }
+    setClassStudentIds(prev => [...prev, studentId]);
+    fetchAll();
+  };
+
+  const removeStudentFromClass = async (studentId: string) => {
+    if (!studentDialogClassId) return;
+    await supabase.from('class_students').delete().eq('class_id', studentDialogClassId).eq('student_id', studentId);
+    setClassStudentIds(prev => prev.filter(id => id !== studentId));
     fetchAll();
   };
 
@@ -376,7 +414,10 @@ const AdminClasses = () => {
                       />
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="secondary" className="text-xs">{c.studentCount}</Badge>
+                      <Button variant="ghost" size="sm" className="gap-1 text-xs h-7" onClick={() => openStudentDialog(c.id)}>
+                        <Users className="h-3 w-3" />
+                        {c.studentCount} students
+                      </Button>
                     </TableCell>
                     <TableCell className="text-center">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteClass(c.id)}>
@@ -390,6 +431,67 @@ const AdminClasses = () => {
           </div>
         </div>
       )}
+
+      {/* Student Management Dialog */}
+      <Dialog open={!!studentDialogClassId} onOpenChange={() => setStudentDialogClassId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Manage Students — {classes.find(c => c.id === studentDialogClassId)?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Enrolled ({classStudentIds.length})</Label>
+              {classStudentIds.length === 0 ? (
+                <p className="text-sm text-muted-foreground mt-2">No students enrolled yet.</p>
+              ) : (
+                <div className="space-y-1 mt-2 max-h-48 overflow-y-auto">
+                  {classStudentIds.map(sid => {
+                    const student = allStudents.find(s => s.id === sid);
+                    return (
+                      <div key={sid} className="flex items-center justify-between p-2 rounded-lg border border-border bg-secondary/50">
+                        <span className="text-sm font-medium text-foreground">{student?.name || 'Unknown'}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeStudentFromClass(sid)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Add Student</Label>
+              <Input
+                className="mt-2"
+                placeholder="Search students by name..."
+                value={studentSearch}
+                onChange={e => setStudentSearch(e.target.value)}
+              />
+              <div className="space-y-1 mt-2 max-h-48 overflow-y-auto">
+                {allStudents
+                  .filter(s => !classStudentIds.includes(s.id) && s.name.toLowerCase().includes(studentSearch.toLowerCase()))
+                  .slice(0, 20)
+                  .map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => addStudentToClass(s.id)}
+                      className="w-full flex items-center justify-between p-2 rounded-lg border border-border hover:bg-secondary transition-colors text-left"
+                    >
+                      <span className="text-sm font-medium text-foreground">{s.name}</span>
+                      <Plus className="h-3.5 w-3.5 text-primary" />
+                    </button>
+                  ))}
+                {studentSearch && allStudents.filter(s => !classStudentIds.includes(s.id) && s.name.toLowerCase().includes(studentSearch.toLowerCase())).length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">No matching students found.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
