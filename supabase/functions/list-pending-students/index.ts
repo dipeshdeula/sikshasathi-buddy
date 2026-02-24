@@ -3,11 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -31,22 +31,21 @@ serve(async (req) => {
       .select("role")
       .eq("user_id", caller.id)
       .single();
-    if (!roleData || roleData.role !== "TEACHER") throw new Error("Only teachers can list pending students");
+    if (!roleData || roleData.role !== "TEACHER") throw new Error("Only teachers can list students");
 
-    // Get all unverified profiles
-    const { data: unverified } = await adminClient
+    // Get ALL student profiles (verified and unverified)
+    const { data: allProfiles } = await adminClient
       .from("profiles")
-      .select("id, full_name, is_verified, preferred_class_level, preferred_section")
-      .eq("is_verified", false);
+      .select("id, full_name, is_verified, preferred_class_level, preferred_section");
 
-    if (!unverified || !unverified.length) {
+    if (!allProfiles || !allProfiles.length) {
       return new Response(JSON.stringify([]), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     // Filter to only STUDENT role
-    const ids = unverified.map(u => u.id);
+    const ids = allProfiles.map(u => u.id);
     const { data: roles } = await adminClient
       .from("user_roles")
       .select("user_id, role")
@@ -56,7 +55,7 @@ serve(async (req) => {
       (roles || []).filter(r => r.role === "STUDENT").map(r => r.user_id)
     );
 
-    const result = unverified
+    const result = allProfiles
       .filter(u => studentIds.has(u.id))
       .map(u => ({
         id: u.id,
