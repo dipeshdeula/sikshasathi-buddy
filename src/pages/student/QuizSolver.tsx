@@ -117,6 +117,26 @@ const QuizSolver = () => {
     } else {
       toast({ title: `Score: ${pct}% (${correct}/${activeQuiz.questions.length})` });
     }
+
+    // Update mastery_states for the quiz's topic
+    try {
+      const { data: quizRow } = await supabase
+        .from('quizzes')
+        .select('topic_id')
+        .eq('id', activeQuiz.quiz.id)
+        .single();
+      if (quizRow?.topic_id) {
+        await supabase.from('mastery_states').upsert({
+          student_id: user.id,
+          topic_id: quizRow.topic_id,
+          mastery_score: pct,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'student_id,topic_id' });
+      }
+    } catch (e) {
+      console.warn('Mastery update failed:', e);
+    }
+
     fetchQuizzes();
   };
 
