@@ -1,24 +1,22 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/store';
+import { useTeacherClasses, useClassStudents, useTopics, useClassMastery, useClassCheckins } from '@/hooks/use-supabase-data';
 import { Progress } from '@/components/ui/progress';
 
 const MasteryDashboard = () => {
   const { user } = useAuth();
-  const classes = user ? db.classes.getByTeacher(user.id) : [];
+  const { data: classes } = useTeacherClasses(user?.id);
   const classId = classes[0]?.id || '';
-  const students = classId ? db.classes.getStudents(classId) : [];
-  const topics = db.topics.getAll();
-  const mastery = classId ? db.mastery.getByClass(classId) : [];
-  const checkins = classId ? db.checkins.getByClass(classId) : [];
+  const { data: students } = useClassStudents(classId);
+  const { data: topics } = useTopics();
+  const { data: mastery } = useClassMastery(classId);
+  const { data: checkins } = useClassCheckins(classId);
 
-  // Topic averages
   const topicAvgs = topics.map(t => {
     const scores = mastery.filter(m => m.topicId === t.id);
     const avg = scores.length > 0 ? Math.round(scores.reduce((s, m) => s + m.masteryScore, 0) / scores.length) : 0;
     return { ...t, avg, weak: avg < 60 };
   }).sort((a, b) => a.avg - b.avg);
 
-  // Students needing support (avg mastery < 50)
   const studentSupport = students.map((s: any) => {
     const scores = mastery.filter(m => m.studentId === s.id);
     const avg = scores.length > 0 ? Math.round(scores.reduce((sum, m) => sum + m.masteryScore, 0) / scores.length) : 0;

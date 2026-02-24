@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { db } from '@/lib/store';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTopics } from '@/hooks/use-supabase-data';
+import { supabase } from '@/integrations/supabase/client';
 import { aiService } from '@/lib/ai-service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +16,8 @@ interface Message {
 }
 
 const AICoach = () => {
-  const topics = db.topics.getAll();
+  const { user } = useAuth();
+  const { data: topics } = useTopics();
   const [topicId, setTopicId] = useState('');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -35,11 +38,10 @@ const AICoach = () => {
     }]);
     setLoading(false);
 
-    // Audit log for coach usage
-    db.audit.log({
-      id: `audit-${Date.now()}`, actorUserId: 'current', action: 'coach_question',
-      entityType: 'ai_coach', entityId: topicId, createdAt: new Date().toISOString(),
-      metadataJson: { question },
+    await supabase.from('audit_logs').insert({
+      actor_user_id: user?.id || null, action: 'coach_question',
+      entity_type: 'ai_coach', entity_id: topicId,
+      metadata_json: { question },
     });
   };
 
@@ -50,9 +52,9 @@ const AICoach = () => {
     setMessages(prev => [...prev, { role: 'coach', content: resp.explanation }]);
     setLoading(false);
 
-    db.audit.log({
-      id: `audit-${Date.now()}`, actorUserId: 'current', action: 'coach_show_answer',
-      entityType: 'ai_coach', entityId: topicId, createdAt: new Date().toISOString(),
+    await supabase.from('audit_logs').insert({
+      actor_user_id: user?.id || null, action: 'coach_show_answer',
+      entity_type: 'ai_coach', entity_id: topicId,
     });
   };
 

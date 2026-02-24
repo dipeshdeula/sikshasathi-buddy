@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/store';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { StudentCheckin } from '@/lib/data';
 
 const emojis = ['😢', '😕', '😐', '🙂', '😄'];
 
@@ -14,17 +13,21 @@ const CheckIn = () => {
   const [score, setScore] = useState(0);
   const [comment, setComment] = useState('');
 
-  const handleSubmit = () => {
-    if (score === 0) { toast({ title: 'Please select a rating', variant: 'destructive' }); return; }
-    const checkin: StudentCheckin = {
-      id: `checkin-${Date.now()}`,
-      studentId: user!.id,
-      classId: 'class-001',
+  const handleSubmit = async () => {
+    if (!user || score === 0) { toast({ title: 'Please select a rating', variant: 'destructive' }); return; }
+
+    // Get student's class
+    const { data: enrollment } = await supabase.from('class_students').select('class_id').eq('student_id', user.id).limit(1);
+    const classId = enrollment?.[0]?.class_id;
+
+    await supabase.from('student_checkins').insert({
+      student_id: user.id,
+      class_id: classId || null,
       date: new Date().toISOString().split('T')[0],
-      happinessScore: score,
+      happiness_score: score,
       comment,
-    };
-    db.checkins.create(checkin);
+    });
+
     toast({ title: 'Check-in saved! Thank you 🙏' });
     setScore(0);
     setComment('');

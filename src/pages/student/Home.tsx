@@ -1,17 +1,75 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/store';
-import { Bot, TrendingUp, SmilePlus, BookOpen } from 'lucide-react';
+import { useStudentMastery, useTopics, useStudentCheckins, useTeacherLessonPlans, useStudentLessonVerifications } from '@/hooks/use-supabase-data';
+import { supabase } from '@/integrations/supabase/client';
+import { Bot, TrendingUp, SmilePlus, BookOpen, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from 'react';
 
 const StudentHome = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const { data: mastery } = useStudentMastery(user?.id);
+  const { data: topics } = useTopics();
+  const { data: checkins } = useStudentCheckins(user?.id);
+
+  // Get lesson plans (all completed ones visible to student)
+  const [lessonPlans, setLessonPlans] = useState<any[]>([]);
+  const [verifications, setVerifications] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!user) return;
+    // Fetch completed lesson plans that the student can see
+    const fetchLessons = async () => {
+      const { data } = await supabase
+        .from('lesson_completions')
+        .select('lesson_plan_id, is_completed, lesson_plans(id, objectives, topics(title))')
+        .eq('is_completed', true);
+      if (data) {
+        setLessonPlans(data.map((d: any) => ({
+          id: d.lesson_plan_id,
+          objectives: d.lesson_plans?.objectives || '',
+          topicTitle: d.lesson_plans?.topics?.title || '',
+        })));
+      }
+
+      // Get verifications for this student
+      const { data: vData } = await supabase
+        .from('student_lesson_verifications')
+        .select('*')
+        .eq('student_id', user.id);
+      const vMap: Record<string, boolean> = {};
+      (vData || []).forEach((v: any) => { vMap[v.lesson_plan_id] = v.is_verified; });
+      setVerifications(vMap);
+    };
+    fetchLessons();
+  }, [user]);
+
+  const handleVerify = async (lessonPlanId: string, checked: boolean) => {
+    if (!user) return;
+    if (checked) {
+      await supabase.from('student_lesson_verifications').upsert({
+        lesson_plan_id: lessonPlanId,
+        student_id: user.id,
+        is_verified: true,
+        verified_at: new Date().toISOString(),
+      }, { onConflict: 'lesson_plan_id,student_id' });
+    } else {
+      await supabase.from('student_lesson_verifications')
+        .update({ is_verified: false })
+        .eq('lesson_plan_id', lessonPlanId)
+        .eq('student_id', user.id);
+    }
+    setVerifications(prev => ({ ...prev, [lessonPlanId]: checked }));
+    toast({ title: checked ? 'Lesson verified ✅' : 'Verification removed' });
+  };
+
   if (!user) return null;
 
-  const mastery = db.mastery.getByStudent(user.id);
-  const topics = db.topics.getAll();
   const avgMastery = mastery.length > 0 ? Math.round(mastery.reduce((s, m) => s + m.masteryScore, 0) / mastery.length) : 0;
-  const checkins = db.checkins.getByStudent(user.id);
   const streakDays = Math.min(checkins.length, 7);
 
   return (
@@ -46,6 +104,30 @@ const StudentHome = () => {
           <span className="text-sm font-semibold text-foreground">Progress</span>
         </Link>
       </div>
+
+      {/* Lesson Verification Section */}
+      {lessonPlans.length > 0 && (
+        <div className="bg-card rounded-xl border border-border p-6 shadow-card">
+          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-primary" /> Completed Lessons - Verify Participation
+          </h2>
+          <div className="space-y-3">
+            {lessonPlans.map(lp => (
+              <div key={lp.id} className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
+                <Checkbox
+                  checked={verifications[lp.id] || false}
+                  onCheckedChange={(checked) => handleVerify(lp.id, !!checked)}
+                  className="mt-1"
+                />
+                <div>
+                  <p className="text-sm font-medium text-foreground">{lp.topicTitle}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2">{lp.objectives}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-card rounded-xl border border-border p-6 shadow-card">
         <h2 className="text-lg font-semibold text-foreground mb-4">My Topics</h2>

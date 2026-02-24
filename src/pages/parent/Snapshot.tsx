@@ -1,14 +1,18 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/store';
+import { useParentChildren, useStudentMastery, useTopics, useStudentReports } from '@/hooks/use-supabase-data';
 import { Progress } from '@/components/ui/progress';
 import { User as UserIcon } from 'lucide-react';
 
 const ParentSnapshot = () => {
   const { user } = useAuth();
-  if (!user) return null;
+  const { data: children } = useParentChildren(user?.id);
+  const child = children[0];
 
-  const children = db.parentLinks.getChildren(user.id);
-  const child = children[0] as any;
+  const { data: mastery } = useStudentMastery(child?.id);
+  const { data: topics } = useTopics();
+  const { data: reports } = useStudentReports(child?.id);
+
+  if (!user) return null;
 
   if (!child) {
     return (
@@ -18,9 +22,7 @@ const ParentSnapshot = () => {
     );
   }
 
-  const mastery = db.mastery.getByStudent(child.id);
-  const topics = db.topics.getAll();
-  const reports = db.reports.getByStudent(child.id).filter(r => r.status === 'approved' || r.status === 'sent');
+  const approvedReports = reports.filter(r => r.status === 'approved' || r.status === 'sent');
   const avgMastery = mastery.length > 0 ? Math.round(mastery.reduce((s, m) => s + m.masteryScore, 0) / mastery.length) : 0;
 
   return (
@@ -59,10 +61,10 @@ const ParentSnapshot = () => {
         </div>
       </div>
 
-      {reports.length > 0 && (
+      {approvedReports.length > 0 && (
         <div className="bg-card rounded-xl border border-border p-6 shadow-card">
           <h2 className="text-lg font-semibold text-foreground mb-4">Weekly Reports</h2>
-          {reports.map(r => (
+          {approvedReports.map(r => (
             <div key={r.id} className="bg-secondary rounded-lg p-4 mb-3">
               <p className="text-xs text-muted-foreground mb-2">Week of {r.weekStart}</p>
               <p className="text-sm text-foreground whitespace-pre-line">{r.reportText}</p>

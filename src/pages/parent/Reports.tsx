@@ -1,20 +1,22 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/store';
+import { useParentChildren, useStudentReports } from '@/hooks/use-supabase-data';
 
 const ParentReports = () => {
   const { user } = useAuth();
+  const { data: children } = useParentChildren(user?.id);
+  const child = children[0];
+  const { data: reports } = useStudentReports(child?.id);
+
   if (!user) return null;
-  const children = db.parentLinks.getChildren(user.id);
-  const child = children[0] as any;
   if (!child) return <p className="text-muted-foreground p-8">No linked child.</p>;
 
-  const reports = db.reports.getByStudent(child.id).filter(r => r.status === 'approved' || r.status === 'sent');
+  const approvedReports = reports.filter(r => r.status === 'approved' || r.status === 'sent');
 
   return (
     <div className="animate-fade-in space-y-6 max-w-3xl">
       <h1 className="text-2xl font-bold text-foreground">Weekly Reports</h1>
-      {reports.length === 0 && <p className="text-muted-foreground text-sm">No approved reports yet.</p>}
-      {reports.map(r => (
+      {approvedReports.length === 0 && <p className="text-muted-foreground text-sm">No approved reports yet.</p>}
+      {approvedReports.map(r => (
         <div key={r.id} className="bg-card rounded-xl border border-border p-6 shadow-card">
           <div className="flex items-center justify-between mb-3">
             <p className="font-semibold text-foreground">{child.name}</p>

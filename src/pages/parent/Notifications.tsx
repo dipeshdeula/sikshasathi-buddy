@@ -1,12 +1,19 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/store';
+import { useUserNotifications } from '@/hooks/use-supabase-data';
+import { supabase } from '@/integrations/supabase/client';
 import { Bell, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const ParentNotifications = () => {
   const { user } = useAuth();
+  const { data: notifs, refetch } = useUserNotifications(user?.id);
+
   if (!user) return null;
-  const notifs = db.notifications.getByUser(user.id);
+
+  const markRead = async (id: string) => {
+    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id);
+    refetch();
+  };
 
   return (
     <div className="animate-fade-in space-y-6 max-w-3xl">
@@ -22,7 +29,7 @@ const ParentNotifications = () => {
           <p className="text-sm text-foreground">{n.message}</p>
           <p className="text-xs text-muted-foreground mt-1">{new Date(n.createdAt).toLocaleString()}</p>
           {!n.readAt && (
-            <Button size="sm" variant="ghost" className="mt-2 gap-1" onClick={() => db.notifications.markRead(n.id)}>
+            <Button size="sm" variant="ghost" className="mt-2 gap-1" onClick={() => markRead(n.id)}>
               <CheckCircle2 className="h-3 w-3" /> Mark read
             </Button>
           )}
