@@ -30,11 +30,12 @@ serve(async (req) => {
       .select("role")
       .eq("user_id", caller.id)
       .single();
-    if (!roleData || roleData.role !== "TEACHER") throw new Error("Only teachers can create students");
+    if (!roleData || roleData.role !== "TEACHER") throw new Error("Only teachers can verify students");
 
-    const { full_name, email, password, class_id, class_level, section } = await req.json();
-    if (!full_name || !email || !password || !class_id) throw new Error("Missing required fields");
+    const { student_id, class_id, class_level, section } = await req.json();
+    if (!student_id || !class_id) throw new Error("Missing student_id or class_id");
 
+    // Verify teacher owns the class
     const { data: classData } = await adminClient
       .from("classes")
       .select("id")
@@ -43,32 +44,17 @@ serve(async (req) => {
       .single();
     if (!classData) throw new Error("You don't own this class");
 
-    // Create the student auth user
-    const { data: newUser, error: createErr } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name, role: "STUDENT" },
-    });
-    if (createErr) throw createErr;
-
-    // Mark as verified and set class level/section
+    // Update profile: verified + class info
     const profileUpdate: Record<string, any> = { is_verified: true };
     if (class_level) profileUpdate.preferred_class_level = class_level;
     if (section) profileUpdate.preferred_section = section;
-    
-    await adminClient
-      .from("profiles")
-      .update(profileUpdate)
-      .eq("id", newUser.user.id);
 
-    // Add student to class
-    const { error: linkErr } = await adminClient
-      .from("class_students")
-      .insert({ class_id, student_id: newUser.user.id });
-    if (linkErr) throw linkErr;
+    await adminClient.from("profiles").update(profileUpdate).eq("id", student_id);
 
-    return new Response(JSON.stringify({ success: true, student_id: newUser.user.id }), {
+    // Add to class (ignore duplicate)
+    await adminClient.from("class_students").insert({ class_id, student_id }).select();
+
+    return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {

@@ -9,16 +9,11 @@ import { GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Role } from '@/lib/data';
 
-const CLASS_LEVELS = ['1', '2', '3'];
-const SECTIONS = ['A', 'B', 'C'];
-
 const Register = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('STUDENT');
-  const [classLevel, setClassLevel] = useState('');
-  const [section, setSection] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -30,12 +25,8 @@ const Register = () => {
       toast({ title: 'Password too short', description: 'Minimum 6 characters', variant: 'destructive' });
       return;
     }
-    if (role === 'STUDENT' && (!classLevel || !section)) {
-      toast({ title: 'Missing fields', description: 'Please select class level and section', variant: 'destructive' });
-      return;
-    }
     setLoading(true);
-    const ok = await register(name, email, password, role, role === 'STUDENT' ? classLevel : undefined, role === 'STUDENT' ? section : undefined);
+    const ok = await register(name, email, password, role);
     setLoading(false);
     if (ok) {
       if (role === 'STUDENT') {
@@ -87,29 +78,9 @@ const Register = () => {
             </div>
 
             {role === 'STUDENT' && (
-              <>
-                <div>
-                  <Label>Class Level</Label>
-                  <Select value={classLevel} onValueChange={setClassLevel}>
-                    <SelectTrigger><SelectValue placeholder="Select class level" /></SelectTrigger>
-                    <SelectContent>
-                      {CLASS_LEVELS.map(l => <SelectItem key={l} value={l}>Class {l}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Section</Label>
-                  <Select value={section} onValueChange={setSection}>
-                    <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
-                    <SelectContent>
-                      {SECTIONS.map(s => <SelectItem key={s} value={s}>Section {s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-2">
-                  ⓘ Student accounts require teacher verification before you can log in.
-                </p>
-              </>
+              <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-2">
+                ⓘ Student accounts require teacher verification before you can log in. Your teacher will assign your class and section.
+              </p>
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>

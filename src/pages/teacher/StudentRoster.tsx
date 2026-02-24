@@ -16,7 +16,7 @@ import { Progress } from '@/components/ui/progress';
 const CLASS_LEVELS = ['1', '2', '3'];
 const SECTIONS = ['A', 'B', 'C'];
 
-interface StudentProfile {
+interface PendingStudent {
   id: string;
   name: string;
   is_verified: boolean;
@@ -39,7 +39,7 @@ interface StudentMetrics {
 const StudentRoster = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { data: classes, refetch: refetchClasses } = useTeacherClasses(user?.id);
+  const { data: classes } = useTeacherClasses(user?.id);
 
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
   const classId = selectedClassId || classes[0]?.id;
@@ -50,19 +50,20 @@ const StudentRoster = () => {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showView, setShowView] = useState<StudentMetrics | null>(null);
-  const [showEdit, setShowEdit] = useState<StudentProfile | null>(null);
+  const [showEdit, setShowEdit] = useState<PendingStudent | null>(null);
   const [editName, setEditName] = useState('');
   const [editClassLevel, setEditClassLevel] = useState('');
   const [editSection, setEditSection] = useState('');
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newClassLevel, setNewClassLevel] = useState('');
+  const [newSection, setNewSection] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // Extended student profiles with verification status
-  const [studentProfiles, setStudentProfiles] = useState<Record<string, StudentProfile>>({});
-  // Unverified students (not yet in any class)
-  const [pendingStudents, setPendingStudents] = useState<StudentProfile[]>([]);
+  // Pending students from edge function
+  const [pendingStudents, setPendingStudents] = useState<PendingStudent[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
 
   // Extra metrics
   const [challengeData, setChallengeData] = useState<Record<string, number>>({});
@@ -70,18 +71,30 @@ const StudentRoster = () => {
   const [badgeData, setBadgeData] = useState<Record<string, number>>({});
   const [lessonVerifData, setLessonVerifData] = useState<Record<string, number>>({});
 
-  // Fetch full profiles for enrolled students
+  // Fetch pending students via edge function
+  const fetchPendingStudents = async () => {
+    setPendingLoading(true);
+    try {
+      const res = await supabase.functions.invoke('list-pending-students');
+      if (res.data && Array.isArray(res.data)) {
+        setPendingStudents(res.data);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch pending students:', err);
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingStudents();
+  }, []);
+
+  // Fetch metrics for enrolled students
   useEffect(() => {
     if (!students.length) return;
     const sIds = students.map((s: any) => s.id);
 
-    supabase.from('profiles').select('id, full_name, is_verified, preferred_class_level, preferred_section').in('id', sIds).then(({ data }) => {
-      const map: Record<string, StudentProfile> = {};
-      (data || []).forEach((p: any) => { map[p.id] = { id: p.id, name: p.full_name, is_verified: p.is_verified, preferred_class_level: p.preferred_class_level, preferred_section: p.preferred_section }; });
-      setStudentProfiles(map);
-    });
-
-    // Metrics
     supabase.from('challenge_submissions').select('student_id').in('student_id', sIds).then(({ data }) => {
       const counts: Record<string, number> = {};
       (data || []).forEach(d => { counts[d.student_id] = (counts[d.student_id] || 0) + 1; });
@@ -110,34 +123,6 @@ const StudentRoster = () => {
     });
   }, [students.length]);
 
-  // Fetch pending (unverified) students
-  useEffect(() => {
-    const fetchPending = async () => {
-      // Get all unverified students
-      const { data: unverified } = await supabase
-        .from('profiles')
-        .select('id, full_name, is_verified, preferred_class_level, preferred_section')
-        .eq('is_verified', false);
-
-      if (!unverified) return;
-
-      // Filter to only STUDENT role
-      const ids = unverified.map(u => u.id);
-      if (!ids.length) { setPendingStudents([]); return; }
-      const { data: roles } = await supabase.from('user_roles').select('user_id, role').in('user_id', ids);
-      const studentIds = new Set((roles || []).filter(r => r.role === 'STUDENT').map(r => r.user_id));
-
-      setPendingStudents(unverified.filter(u => studentIds.has(u.id)).map(u => ({
-        id: u.id,
-        name: u.full_name,
-        is_verified: u.is_verified,
-        preferred_class_level: (u as any).preferred_class_level,
-        preferred_section: (u as any).preferred_section,
-      })));
-    };
-    fetchPending();
-  }, [students.length]);
-
   const getStudentMetrics = (sId: string, sName: string): StudentMetrics => {
     const scores = mastery.filter(m => m.studentId === sId);
     const avgMastery = scores.length > 0 ? Math.round(scores.reduce((s, m) => s + m.masteryScore, 0) / scores.length) : 0;
@@ -153,34 +138,40 @@ const StudentRoster = () => {
     };
   };
 
-  const handleVerifyStudent = async (studentId: string, classLvl?: string, sect?: string) => {
+  const handleVerifyStudent = async (studentId: string) => {
     if (!classId) { toast({ title: 'No class selected', variant: 'destructive' }); return; }
-    // Update profile as verified
-    await supabase.from('profiles').update({ is_verified: true } as any).eq('id', studentId);
-    // Add to class
-    const { error } = await supabase.from('class_students').insert({ class_id: classId, student_id: studentId });
-    if (error && !error.message.includes('duplicate')) {
-      toast({ title: 'Error adding to class', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      const res = await supabase.functions.invoke('verify-student', {
+        body: { student_id: studentId, class_id: classId },
+      });
+      if (res.data?.error) throw new Error(res.data.error);
+      toast({ title: 'Student verified and added to class!' });
+      setPendingStudents(prev => prev.filter(s => s.id !== studentId));
+      refetchStudents();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
-    toast({ title: 'Student verified and added to class!' });
-    refetchStudents();
-    setPendingStudents(prev => prev.filter(s => s.id !== studentId));
   };
 
   const handleCreateStudent = async () => {
     if (!newName.trim() || !newEmail.trim() || !newPassword.trim() || !classId) return;
     setCreating(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
       const res = await supabase.functions.invoke('create-student', {
-        body: { full_name: newName.trim(), email: newEmail.trim(), password: newPassword.trim(), class_id: classId },
+        body: {
+          full_name: newName.trim(),
+          email: newEmail.trim(),
+          password: newPassword.trim(),
+          class_id: classId,
+          class_level: newClassLevel || undefined,
+          section: newSection || undefined,
+        },
       });
       if (res.error) throw new Error(res.error.message);
       if (res.data?.error) throw new Error(res.data.error);
       toast({ title: 'Student account created and added to class!' });
-      setNewName(''); setNewEmail(''); setNewPassword(''); setShowCreate(false);
+      setNewName(''); setNewEmail(''); setNewPassword(''); setNewClassLevel(''); setNewSection('');
+      setShowCreate(false);
       refetchStudents();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -207,9 +198,10 @@ const StudentRoster = () => {
     toast({ title: 'Student updated' });
     setShowEdit(null);
     refetchStudents();
+    fetchPendingStudents();
   };
 
-  const openEdit = (s: StudentProfile) => {
+  const openEdit = (s: PendingStudent) => {
     setShowEdit(s);
     setEditName(s.name);
     setEditClassLevel(s.preferred_class_level || '');
@@ -239,7 +231,7 @@ const StudentRoster = () => {
             ) : (
               <span className="text-sm font-medium text-foreground">{classes[0]?.name}</span>
             )}
-            <Badge variant="secondary">{students.length} students</Badge>
+            <Badge variant="secondary">{students.length} students enrolled</Badge>
           </div>
         </div>
       )}
@@ -250,12 +242,11 @@ const StudentRoster = () => {
           <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-warning" /> Pending Verification ({pendingStudents.length})
           </h2>
+          <p className="text-xs text-muted-foreground">These students registered and are awaiting your verification to access the platform.</p>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Student</TableHead>
-                <TableHead>Preferred Class</TableHead>
-                <TableHead>Preferred Section</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -268,15 +259,10 @@ const StudentRoster = () => {
                       <span className="font-medium text-sm">{s.name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm">{s.preferred_class_level ? `Class ${s.preferred_class_level}` : '—'}</TableCell>
-                  <TableCell className="text-sm">{s.preferred_section ? `Section ${s.preferred_section}` : '—'}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button size="sm" variant="default" onClick={() => handleVerifyStudent(s.id, s.preferred_class_level || undefined, s.preferred_section || undefined)}>
-                        <CheckCircle className="h-3 w-3 mr-1" /> Verify & Add
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
-                        <Pencil className="h-3 w-3" />
+                      <Button size="sm" variant="default" onClick={() => handleVerifyStudent(s.id)}>
+                        <CheckCircle className="h-3 w-3 mr-1" /> Verify & Add to Class
                       </Button>
                     </div>
                   </TableCell>
@@ -298,7 +284,7 @@ const StudentRoster = () => {
         {filtered.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Users className="h-10 w-10 mx-auto mb-2 opacity-40" />
-            <p>No students found.</p>
+            <p>No students enrolled in this class yet.</p>
           </div>
         ) : (
           <Table>
@@ -306,7 +292,6 @@ const StudentRoster = () => {
               <TableRow>
                 <TableHead>#</TableHead>
                 <TableHead>Student</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead>Mastery</TableHead>
                 <TableHead>Quizzes</TableHead>
                 <TableHead>Challenges</TableHead>
@@ -317,7 +302,6 @@ const StudentRoster = () => {
             <TableBody>
               {filtered.map((s: any, i: number) => {
                 const m = getStudentMetrics(s.id, s.name);
-                const profile = studentProfiles[s.id];
                 return (
                   <TableRow key={s.id}>
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
@@ -326,13 +310,6 @@ const StudentRoster = () => {
                         <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">{s.name.charAt(0)}</div>
                         <span className="font-medium text-sm">{s.name}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {profile?.is_verified ? (
-                        <Badge variant="default" className="text-xs"><CheckCircle className="h-3 w-3 mr-1" />Verified</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs"><XCircle className="h-3 w-3 mr-1" />Pending</Badge>
-                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -346,7 +323,6 @@ const StudentRoster = () => {
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="sm" onClick={() => setShowView(m)} title="View details"><Eye className="h-3 w-3" /></Button>
-                        {profile && <Button variant="ghost" size="sm" onClick={() => openEdit(profile)} title="Edit"><Pencil className="h-3 w-3" /></Button>}
                         <Button variant="ghost" size="sm" onClick={() => handleRemoveStudent(s.id)} title="Remove"><Trash2 className="h-3 w-3 text-destructive" /></Button>
                       </div>
                     </TableCell>
@@ -366,6 +342,20 @@ const StudentRoster = () => {
             <div><Label>Full Name</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Student name" /></div>
             <div><Label>Email</Label><Input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="student@email.com" type="email" /></div>
             <div><Label>Password</Label><Input value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Password" type="password" /></div>
+            <div>
+              <Label>Class Level</Label>
+              <Select value={newClassLevel} onValueChange={setNewClassLevel}>
+                <SelectTrigger><SelectValue placeholder="Select class level" /></SelectTrigger>
+                <SelectContent>{CLASS_LEVELS.map(l => <SelectItem key={l} value={l}>Class {l}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Section</Label>
+              <Select value={newSection} onValueChange={setNewSection}>
+                <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
+                <SelectContent>{SECTIONS.map(s => <SelectItem key={s} value={s}>Section {s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
             <p className="text-xs text-muted-foreground">Student will be auto-verified and added to the selected class.</p>
             <Button onClick={handleCreateStudent} className="w-full" disabled={creating}>{creating ? 'Creating…' : 'Create & Add to Class'}</Button>
           </div>
