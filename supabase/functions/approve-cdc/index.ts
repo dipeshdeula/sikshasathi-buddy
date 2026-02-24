@@ -17,16 +17,11 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) throw new Error("Missing authorization header");
 
-    // Verify user
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || SUPABASE_SERVICE_ROLE_KEY;
-    const anonClient = createClient(SUPABASE_URL, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getUser(token);
-    if (claimsError || !claimsData?.user) throw new Error("Unauthorized");
-
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getUser(token);
+    if (claimsError || !claimsData?.user) throw new Error("Unauthorized");
 
     const { uploadId } = await req.json();
     if (!uploadId) throw new Error("Missing uploadId");
