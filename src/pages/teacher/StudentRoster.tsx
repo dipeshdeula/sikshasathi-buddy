@@ -265,11 +265,31 @@ const StudentRoster = () => {
     if (editName.trim()) updates.full_name = editName.trim();
     if (editClassLevel) updates.preferred_class_level = editClassLevel;
     if (editSection) updates.preferred_section = editSection;
+    
     const { error } = await supabase.from("profiles").update(updates).eq("id", showEdit.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return;
     }
+
+    // If class level or section changed, try to move student to matching class
+    if (editClassLevel || editSection) {
+      // Find a class matching the new level+section owned by this teacher
+      const matchQuery = supabase.from("classes").select("id").eq("teacher_id", user?.id);
+      if (editClassLevel) matchQuery.eq("class_level", editClassLevel);
+      if (editSection) matchQuery.eq("section", editSection);
+      const { data: matchingClasses } = await matchQuery.limit(1);
+      
+      if (matchingClasses && matchingClasses.length > 0) {
+        const newClassId = matchingClasses[0].id;
+        if (classId && classId !== newClassId) {
+          await supabase.from("class_students").delete().eq("class_id", classId).eq("student_id", showEdit.id);
+          // Add to new class
+          await supabase.from("class_students").insert({ class_id: newClassId, student_id: showEdit.id });
+        }
+      }
+    }
+
     toast({ title: "Student updated" });
     setShowEdit(null);
     refetchStudents();
