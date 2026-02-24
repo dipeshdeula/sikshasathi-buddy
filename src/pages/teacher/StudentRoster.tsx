@@ -147,8 +147,9 @@ const StudentRoster = () => {
       });
       if (res.data?.error) throw new Error(res.data.error);
       toast({ title: 'Student verified!' });
-      // Update local state
-      setPendingStudents(prev => prev.map(s => s.id === studentId ? { ...s, is_verified: true } : s));
+      // Refetch from database
+      refetchStudents();
+      fetchPendingStudents();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
