@@ -55,6 +55,12 @@ serve(async (req) => {
     });
     if (createErr) throw createErr;
 
+    // Mark as verified (teacher-created students are auto-verified)
+    await adminClient
+      .from("profiles")
+      .update({ is_verified: true })
+      .eq("id", newUser.user.id);
+
     // Add student to class
     const { error: linkErr } = await adminClient
       .from("class_students")

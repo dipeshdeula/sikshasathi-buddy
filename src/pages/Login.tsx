@@ -19,14 +19,16 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const ok = await login(email, password);
+    const result = await login(email, password);
     setLoading(false);
-    if (ok) {
+    if (result.success) {
       const cached = localStorage.getItem('siksha_user');
       if (cached) {
         const u = JSON.parse(cached);
         navigate(`/${u.role.toLowerCase()}`);
       }
+    } else if (result.unverified) {
+      toast({ title: 'Account not verified', description: 'Your teacher has not verified your account yet. Please contact your teacher.', variant: 'destructive' });
     } else {
       toast({ title: 'Login failed', description: 'Invalid email or password', variant: 'destructive' });
     }
