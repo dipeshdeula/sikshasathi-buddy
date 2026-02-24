@@ -1,18 +1,17 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { aiService } from '@/lib/ai-service';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
-import { Sparkles, Save, BookOpen, Pencil, Trash2, FileText, GraduationCap, Users } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { Grade, Subject, Unit, Topic, LessonPlan, TeacherGuidelineEntry } from '@/lib/data';
-import { mapGrade, mapSubject, mapUnit, mapTopic, mapLessonPlan, mapTeacherGuidelineEntry } from '@/lib/data';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { aiService } from "@/lib/ai-service";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { Sparkles, Save, BookOpen, Pencil, Trash2, FileText, GraduationCap } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { Grade, Subject, Unit, Topic, LessonPlan, TeacherGuidelineEntry } from "@/lib/data";
+import { mapGrade, mapSubject, mapUnit, mapTopic, mapLessonPlan, mapTeacherGuidelineEntry } from "@/lib/data";
 
 const LessonPlanBuilder = () => {
   const { user } = useAuth();
@@ -28,242 +27,284 @@ const LessonPlanBuilder = () => {
   const [assessmentIndicators, setAssessmentIndicators] = useState<string[]>([]);
 
   // Filters
-  const [gradeId, setGradeId] = useState('');
-  const [subjectId, setSubjectId] = useState('');
-  const [unitId, setUnitId] = useState('');
-  const [topicId, setTopicId] = useState('');
-  const [classLevel, setClassLevel] = useState('Medium');
-  const [durationType, setDurationType] = useState('Daily');
+  const [gradeId, setGradeId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+  const [unitId, setUnitId] = useState("");
+  const [topicId, setTopicId] = useState("");
+  const [classLevel, setClassLevel] = useState("Medium");
+  const [durationType, setDurationType] = useState("Daily");
 
   // Lesson Plan fields
-  const [objectives, setObjectives] = useState('');
-  const [homework, setHomework] = useState('');
+  const [objectives, setObjectives] = useState("");
+  const [homework, setHomework] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [lessonPlans, setLessonPlans] = useState<(LessonPlan & { topicTitle?: string; unitTitle?: string; subjectName?: string })[]>([]);
+  const [lessonPlans, setLessonPlans] = useState<
+    (LessonPlan & { topicTitle?: string; unitTitle?: string; subjectName?: string })[]
+  >([]);
   const [editingLpId, setEditingLpId] = useState<string | null>(null);
 
   // Teacher Guideline fields
-  const [tgTeachingScript, setTgTeachingScript] = useState('');
-  const [tgBoardwork, setTgBoardwork] = useState('');
-  const [tgReferenceLinks, setTgReferenceLinks] = useState('');
-  const [tgPresentation, setTgPresentation] = useState('');
+  const [tgTeachingScript, setTgTeachingScript] = useState("");
+  const [tgBoardwork, setTgBoardwork] = useState("");
+  const [tgReferenceLinks, setTgReferenceLinks] = useState("");
+  const [tgPresentation, setTgPresentation] = useState("");
   const [tgGenerating, setTgGenerating] = useState(false);
-  const [teacherGuidelines, setTeacherGuidelines] = useState<(TeacherGuidelineEntry & { topicTitle?: string; unitTitle?: string; subjectName?: string })[]>([]);
+  const [teacherGuidelines, setTeacherGuidelines] = useState<
+    (TeacherGuidelineEntry & { topicTitle?: string; unitTitle?: string; subjectName?: string })[]
+  >([]);
   const [editingTgId, setEditingTgId] = useState<string | null>(null);
 
   // TG filters (separate)
-  const [tgGradeId, setTgGradeId] = useState('');
-  const [tgSubjectId, setTgSubjectId] = useState('');
-  const [tgUnitId, setTgUnitId] = useState('');
-  const [tgTopicId, setTgTopicId] = useState('');
+  const [tgGradeId, setTgGradeId] = useState("");
+  const [tgSubjectId, setTgSubjectId] = useState("");
+  const [tgUnitId, setTgUnitId] = useState("");
+  const [tgTopicId, setTgTopicId] = useState("");
   const [tgSubjects, setTgSubjects] = useState<Subject[]>([]);
   const [tgUnits, setTgUnits] = useState<Unit[]>([]);
   const [tgTopics, setTgTopics] = useState<Topic[]>([]);
 
-  // Lesson completion tracking
-  const [completions, setCompletions] = useState<Record<string, boolean>>({});
-  const [verificationCounts, setVerificationCounts] = useState<Record<string, { verified: number; total: number }>>({});
-
   // Load grades on mount
   useEffect(() => {
-    supabase.from('grades').select('*').order('name').then(({ data }) => {
-      if (data) setGrades(data.map(mapGrade));
-    });
+    supabase
+      .from("grades")
+      .select("*")
+      .order("name")
+      .then(({ data }) => {
+        if (data) setGrades(data.map(mapGrade));
+      });
     loadLessonPlans();
     loadTeacherGuidelines();
   }, []);
 
-  // Load completions whenever lesson plans change
-  useEffect(() => {
-    if (lessonPlans.length === 0) return;
-    const ids = lessonPlans.map(lp => lp.id);
-    
-    // Load teacher completions
-    supabase.from('lesson_completions').select('*').in('lesson_plan_id', ids).then(({ data }) => {
-      const map: Record<string, boolean> = {};
-      (data || []).forEach((c: any) => { map[c.lesson_plan_id] = c.is_completed; });
-      setCompletions(map);
-    });
-
-    // Load student verification counts
-    Promise.all([
-      supabase.from('student_lesson_verifications').select('lesson_plan_id, is_verified').in('lesson_plan_id', ids),
-      supabase.from('classes').select('id').eq('teacher_id', user?.id || ''),
-    ]).then(async ([verifRes, classRes]) => {
-      const classId = classRes.data?.[0]?.id;
-      let totalStudents = 0;
-      if (classId) {
-        const { count } = await supabase.from('class_students').select('*', { count: 'exact', head: true }).eq('class_id', classId);
-        totalStudents = count || 0;
-      }
-      const counts: Record<string, { verified: number; total: number }> = {};
-      ids.forEach(id => { counts[id] = { verified: 0, total: totalStudents }; });
-      (verifRes.data || []).forEach((v: any) => {
-        if (v.is_verified && counts[v.lesson_plan_id]) {
-          counts[v.lesson_plan_id].verified++;
-        }
-      });
-      setVerificationCounts(counts);
-    });
-  }, [lessonPlans, user?.id]);
-
-  const handleToggleCompletion = async (lessonPlanId: string, completed: boolean) => {
-    if (!user) return;
-    if (completed) {
-      await supabase.from('lesson_completions').upsert({
-        lesson_plan_id: lessonPlanId,
-        teacher_id: user.id,
-        is_completed: true,
-        completed_at: new Date().toISOString(),
-      }, { onConflict: 'lesson_plan_id,teacher_id' } as any);
-    } else {
-      await supabase.from('lesson_completions')
-        .update({ is_completed: false, completed_at: null })
-        .eq('lesson_plan_id', lessonPlanId)
-        .eq('teacher_id', user.id);
-    }
-    setCompletions(prev => ({ ...prev, [lessonPlanId]: completed }));
-    toast({ title: completed ? 'Lesson marked as completed ✅' : 'Lesson marked as incomplete' });
-  };
-
   // Cascade: grade → subjects
   useEffect(() => {
-    if (!gradeId) { setSubjects([]); return; }
-    supabase.from('subjects').select('*').eq('grade_id', gradeId).order('name').then(({ data }) => {
-      if (data) setSubjects(data.map(mapSubject));
-    });
-    setSubjectId(''); setUnitId(''); setTopicId('');
+    if (!gradeId) {
+      setSubjects([]);
+      return;
+    }
+    supabase
+      .from("subjects")
+      .select("*")
+      .eq("grade_id", gradeId)
+      .order("name")
+      .then(({ data }) => {
+        if (data) setSubjects(data.map(mapSubject));
+      });
+    setSubjectId("");
+    setUnitId("");
+    setTopicId("");
   }, [gradeId]);
 
   useEffect(() => {
-    if (!tgGradeId) { setTgSubjects([]); return; }
-    supabase.from('subjects').select('*').eq('grade_id', tgGradeId).order('name').then(({ data }) => {
-      if (data) setTgSubjects(data.map(mapSubject));
-    });
-    setTgSubjectId(''); setTgUnitId(''); setTgTopicId('');
+    if (!tgGradeId) {
+      setTgSubjects([]);
+      return;
+    }
+    supabase
+      .from("subjects")
+      .select("*")
+      .eq("grade_id", tgGradeId)
+      .order("name")
+      .then(({ data }) => {
+        if (data) setTgSubjects(data.map(mapSubject));
+      });
+    setTgSubjectId("");
+    setTgUnitId("");
+    setTgTopicId("");
   }, [tgGradeId]);
 
   // Cascade: subject → units
   useEffect(() => {
-    if (!subjectId) { setUnits([]); return; }
-    supabase.from('units').select('*').eq('subject_id', subjectId).order('order_index').then(({ data }) => {
-      if (data) setUnits(data.map(mapUnit));
-    });
-    setUnitId(''); setTopicId('');
+    if (!subjectId) {
+      setUnits([]);
+      return;
+    }
+    supabase
+      .from("units")
+      .select("*")
+      .eq("subject_id", subjectId)
+      .order("order_index")
+      .then(({ data }) => {
+        if (data) setUnits(data.map(mapUnit));
+      });
+    setUnitId("");
+    setTopicId("");
   }, [subjectId]);
 
   useEffect(() => {
-    if (!tgSubjectId) { setTgUnits([]); return; }
-    supabase.from('units').select('*').eq('subject_id', tgSubjectId).order('order_index').then(({ data }) => {
-      if (data) setTgUnits(data.map(mapUnit));
-    });
-    setTgUnitId(''); setTgTopicId('');
+    if (!tgSubjectId) {
+      setTgUnits([]);
+      return;
+    }
+    supabase
+      .from("units")
+      .select("*")
+      .eq("subject_id", tgSubjectId)
+      .order("order_index")
+      .then(({ data }) => {
+        if (data) setTgUnits(data.map(mapUnit));
+      });
+    setTgUnitId("");
+    setTgTopicId("");
   }, [tgSubjectId]);
 
   // Cascade: unit → topics
   useEffect(() => {
-    if (!unitId) { setTopics([]); return; }
-    supabase.from('topics').select('*').eq('unit_id', unitId).order('order_index').then(({ data }) => {
-      if (data) setTopics(data.map(mapTopic));
-    });
-    setTopicId('');
+    if (!unitId) {
+      setTopics([]);
+      return;
+    }
+    supabase
+      .from("topics")
+      .select("*")
+      .eq("unit_id", unitId)
+      .order("order_index")
+      .then(({ data }) => {
+        if (data) setTopics(data.map(mapTopic));
+      });
+    setTopicId("");
   }, [unitId]);
 
   useEffect(() => {
-    if (!tgUnitId) { setTgTopics([]); return; }
-    supabase.from('topics').select('*').eq('unit_id', tgUnitId).order('order_index').then(({ data }) => {
-      if (data) setTgTopics(data.map(mapTopic));
-    });
-    setTgTopicId('');
+    if (!tgUnitId) {
+      setTgTopics([]);
+      return;
+    }
+    supabase
+      .from("topics")
+      .select("*")
+      .eq("unit_id", tgUnitId)
+      .order("order_index")
+      .then(({ data }) => {
+        if (data) setTgTopics(data.map(mapTopic));
+      });
+    setTgTopicId("");
   }, [tgUnitId]);
 
   // Load learning outcomes + guidelines when topic selected
   useEffect(() => {
-    if (!topicId) { setLearningOutcomes([]); return; }
-    supabase.from('learning_outcomes').select('outcome_text').eq('topic_id', topicId).then(({ data }) => {
-      if (data) setLearningOutcomes(data.map(d => d.outcome_text));
-    });
+    if (!topicId) {
+      setLearningOutcomes([]);
+      return;
+    }
+    supabase
+      .from("learning_outcomes")
+      .select("outcome_text")
+      .eq("topic_id", topicId)
+      .then(({ data }) => {
+        if (data) setLearningOutcomes(data.map((d) => d.outcome_text));
+      });
   }, [topicId]);
 
   useEffect(() => {
-    if (!tgTopicId) { setTeachingGuidelinesData([]); setAssessmentIndicators([]); return; }
+    if (!tgTopicId) {
+      setTeachingGuidelinesData([]);
+      setAssessmentIndicators([]);
+      return;
+    }
     Promise.all([
-      supabase.from('teaching_guidelines').select('guideline_text').eq('topic_id', tgTopicId),
-      supabase.from('assessment_indicators').select('indicator_text').eq('topic_id', tgTopicId),
+      supabase.from("teaching_guidelines").select("guideline_text").eq("topic_id", tgTopicId),
+      supabase.from("assessment_indicators").select("indicator_text").eq("topic_id", tgTopicId),
     ]).then(([tg, ai]) => {
-      if (tg.data) setTeachingGuidelinesData(tg.data.map(d => d.guideline_text));
-      if (ai.data) setAssessmentIndicators(ai.data.map(d => d.indicator_text));
+      if (tg.data) setTeachingGuidelinesData(tg.data.map((d) => d.guideline_text));
+      if (ai.data) setAssessmentIndicators(ai.data.map((d) => d.indicator_text));
     });
   }, [tgTopicId]);
 
   const loadLessonPlans = async () => {
     const { data } = await supabase
-      .from('lesson_plans')
-      .select('*, topics(title, unit_id, units(title, subject_id, subjects(name)))')
-      .order('created_at', { ascending: false });
+      .from("lesson_plans")
+      .select("*, topics(title, unit_id, units(title, subject_id, subjects(name)))")
+      .order("created_at", { ascending: false });
     if (data) {
-      setLessonPlans(data.map((r: any) => ({
-        ...mapLessonPlan(r),
-        topicTitle: r.topics?.title || '',
-        unitTitle: r.topics?.units?.title || '',
-        subjectName: r.topics?.units?.subjects?.name || '',
-      })));
+      setLessonPlans(
+        data.map((r: any) => ({
+          ...mapLessonPlan(r),
+          topicTitle: r.topics?.title || "",
+          unitTitle: r.topics?.units?.title || "",
+          subjectName: r.topics?.units?.subjects?.name || "",
+        })),
+      );
     }
   };
 
   const loadTeacherGuidelines = async () => {
     const { data } = await supabase
-      .from('teacher_guidelines')
-      .select('*, topics(title, unit_id, units(title, subject_id, subjects(name)))')
-      .order('created_at', { ascending: false });
+      .from("teacher_guidelines")
+      .select("*, topics(title, unit_id, units(title, subject_id, subjects(name)))")
+      .order("created_at", { ascending: false });
     if (data) {
-      setTeacherGuidelines(data.map((r: any) => ({
-        ...mapTeacherGuidelineEntry(r),
-        topicTitle: r.topics?.title || '',
-        unitTitle: r.topics?.units?.title || '',
-        subjectName: r.topics?.units?.subjects?.name || '',
-      })));
+      setTeacherGuidelines(
+        data.map((r: any) => ({
+          ...mapTeacherGuidelineEntry(r),
+          topicTitle: r.topics?.title || "",
+          unitTitle: r.topics?.units?.title || "",
+          subjectName: r.topics?.units?.subjects?.name || "",
+        })),
+      );
     }
   };
 
   // --- Lesson Plan CRUD ---
   const handleGenerateLP = async () => {
-    if (!topicId) { toast({ title: 'Select a topic first', variant: 'destructive' }); return; }
-    const topic = topics.find(t => t.id === topicId);
-    const unit = units.find(u => u.id === unitId);
-    const subject = subjects.find(s => s.id === subjectId);
+    if (!topicId) {
+      toast({ title: "Select a topic first", variant: "destructive" });
+      return;
+    }
+    const topic = topics.find((t) => t.id === topicId);
+    const unit = units.find((u) => u.id === unitId);
+    const subject = subjects.find((s) => s.id === subjectId);
     if (!topic || !subject) return;
     setGenerating(true);
     try {
       const result = await aiService.generateLessonPlan({
-        subject: subject.name, topic: topic.title, unit: unit?.title || '',
-        classLevel, durationType, learningOutcomes,
+        subject: subject.name,
+        topic: topic.title,
+        unit: unit?.title || "",
+        classLevel,
+        durationType,
+        learningOutcomes,
       });
       setObjectives(result.objectives);
       setHomework(result.homework);
-      toast({ title: 'AI generated lesson plan!' });
+      toast({ title: "AI generated lesson plan!" });
     } catch (err: any) {
-      toast({ title: 'AI Generation Failed', description: err.message, variant: 'destructive' });
+      toast({ title: "AI Generation Failed", description: err.message, variant: "destructive" });
     } finally {
       setGenerating(false);
     }
   };
 
   const handleSaveLP = async () => {
-    if (!topicId || !user) { toast({ title: 'Missing topic', variant: 'destructive' }); return; }
+    if (!topicId || !user) {
+      toast({ title: "Missing topic", variant: "destructive" });
+      return;
+    }
     if (editingLpId) {
-      await supabase.from('lesson_plans').update({
-        topic_id: topicId, duration_type: durationType, class_level: classLevel,
-        objectives, homework, updated_at: new Date().toISOString(),
-      }).eq('id', editingLpId);
+      await supabase
+        .from("lesson_plans")
+        .update({
+          topic_id: topicId,
+          duration_type: durationType,
+          class_level: classLevel,
+          objectives,
+          homework,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingLpId);
       setEditingLpId(null);
-      toast({ title: 'Lesson plan updated!' });
+      toast({ title: "Lesson plan updated!" });
     } else {
-      await supabase.from('lesson_plans').insert({
-        teacher_id: user.id, topic_id: topicId, duration_type: durationType,
-        class_level: classLevel, objectives, homework, generated_by_ai: generating,
+      await supabase.from("lesson_plans").insert({
+        teacher_id: user.id,
+        topic_id: topicId,
+        duration_type: durationType,
+        class_level: classLevel,
+        objectives,
+        homework,
+        generated_by_ai: generating,
       });
-      toast({ title: 'Lesson plan saved!' });
+      toast({ title: "Lesson plan saved!" });
     }
     resetLPForm();
     loadLessonPlans();
@@ -278,58 +319,79 @@ const LessonPlanBuilder = () => {
   };
 
   const handleDeleteLP = async (id: string) => {
-    await supabase.from('lesson_plans').delete().eq('id', id);
-    toast({ title: 'Lesson plan deleted' });
+    await supabase.from("lesson_plans").delete().eq("id", id);
+    toast({ title: "Lesson plan deleted" });
     loadLessonPlans();
   };
 
   const resetLPForm = () => {
-    setObjectives(''); setHomework(''); setEditingLpId(null);
+    setObjectives("");
+    setHomework("");
+    setEditingLpId(null);
   };
 
   // --- Teacher Guideline CRUD ---
   const handleGenerateTG = async () => {
-    if (!tgTopicId) { toast({ title: 'Select a topic first', variant: 'destructive' }); return; }
-    const topic = tgTopics.find(t => t.id === tgTopicId);
-    const unit = tgUnits.find(u => u.id === tgUnitId);
-    const subject = tgSubjects.find(s => s.id === tgSubjectId);
+    if (!tgTopicId) {
+      toast({ title: "Select a topic first", variant: "destructive" });
+      return;
+    }
+    const topic = tgTopics.find((t) => t.id === tgTopicId);
+    const unit = tgUnits.find((u) => u.id === tgUnitId);
+    const subject = tgSubjects.find((s) => s.id === tgSubjectId);
     if (!topic || !subject) return;
     setTgGenerating(true);
     try {
       const result = await aiService.generateTeacherGuideline({
-        subject: subject.name, topic: topic.title, unit: unit?.title || '',
-        classLevel: 'Medium', teachingGuidelines: teachingGuidelinesData,
+        subject: subject.name,
+        topic: topic.title,
+        unit: unit?.title || "",
+        classLevel: "Medium",
+        teachingGuidelines: teachingGuidelinesData,
         assessmentIndicators,
       });
       setTgTeachingScript(result.teachingScript);
       setTgBoardwork(result.boardwork);
       setTgReferenceLinks(result.referenceLinks);
       setTgPresentation(result.presentationContent);
-      toast({ title: 'AI generated teacher guideline!' });
+      toast({ title: "AI generated teacher guideline!" });
     } catch (err: any) {
-      toast({ title: 'AI Generation Failed', description: err.message, variant: 'destructive' });
+      toast({ title: "AI Generation Failed", description: err.message, variant: "destructive" });
     } finally {
       setTgGenerating(false);
     }
   };
 
   const handleSaveTG = async () => {
-    if (!tgTopicId || !user) { toast({ title: 'Missing topic', variant: 'destructive' }); return; }
+    if (!tgTopicId || !user) {
+      toast({ title: "Missing topic", variant: "destructive" });
+      return;
+    }
     if (editingTgId) {
-      await supabase.from('teacher_guidelines').update({
-        topic_id: tgTopicId, teaching_script: tgTeachingScript, boardwork: tgBoardwork,
-        reference_links: tgReferenceLinks, presentation_content: tgPresentation,
-        updated_at: new Date().toISOString(),
-      }).eq('id', editingTgId);
+      await supabase
+        .from("teacher_guidelines")
+        .update({
+          topic_id: tgTopicId,
+          teaching_script: tgTeachingScript,
+          boardwork: tgBoardwork,
+          reference_links: tgReferenceLinks,
+          presentation_content: tgPresentation,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingTgId);
       setEditingTgId(null);
-      toast({ title: 'Guideline updated!' });
+      toast({ title: "Guideline updated!" });
     } else {
-      await supabase.from('teacher_guidelines').insert({
-        teacher_id: user.id, topic_id: tgTopicId, teaching_script: tgTeachingScript,
-        boardwork: tgBoardwork, reference_links: tgReferenceLinks,
-        presentation_content: tgPresentation, generated_by_ai: true,
+      await supabase.from("teacher_guidelines").insert({
+        teacher_id: user.id,
+        topic_id: tgTopicId,
+        teaching_script: tgTeachingScript,
+        boardwork: tgBoardwork,
+        reference_links: tgReferenceLinks,
+        presentation_content: tgPresentation,
+        generated_by_ai: true,
       });
-      toast({ title: 'Guideline saved!' });
+      toast({ title: "Guideline saved!" });
     }
     resetTGForm();
     loadTeacherGuidelines();
@@ -344,58 +406,102 @@ const LessonPlanBuilder = () => {
   };
 
   const handleDeleteTG = async (id: string) => {
-    await supabase.from('teacher_guidelines').delete().eq('id', id);
-    toast({ title: 'Guideline deleted' });
+    await supabase.from("teacher_guidelines").delete().eq("id", id);
+    toast({ title: "Guideline deleted" });
     loadTeacherGuidelines();
   };
 
   const resetTGForm = () => {
-    setTgTeachingScript(''); setTgBoardwork(''); setTgReferenceLinks(''); setTgPresentation(''); setEditingTgId(null);
+    setTgTeachingScript("");
+    setTgBoardwork("");
+    setTgReferenceLinks("");
+    setTgPresentation("");
+    setEditingTgId(null);
   };
 
   const CurriculumFilters = ({
-    gId, sId, uId, tId, setGId, setSId, setUId, setTId,
-    subs, uns, tops,
+    gId,
+    sId,
+    uId,
+    tId,
+    setGId,
+    setSId,
+    setUId,
+    setTId,
+    subs,
+    uns,
+    tops,
   }: {
-    gId: string; sId: string; uId: string; tId: string;
-    setGId: (v: string) => void; setSId: (v: string) => void;
-    setUId: (v: string) => void; setTId: (v: string) => void;
-    subs: Subject[]; uns: Unit[]; tops: Topic[];
+    gId: string;
+    sId: string;
+    uId: string;
+    tId: string;
+    setGId: (v: string) => void;
+    setSId: (v: string) => void;
+    setUId: (v: string) => void;
+    setTId: (v: string) => void;
+    subs: Subject[];
+    uns: Unit[];
+    tops: Topic[];
   }) => (
     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div>
         <Label>Class Level (Grade)</Label>
         <Select value={gId} onValueChange={setGId}>
-          <SelectTrigger><SelectValue placeholder="Select Grade" /></SelectTrigger>
+          <SelectTrigger>
+            <SelectValue placeholder="Select Grade" />
+          </SelectTrigger>
           <SelectContent>
-            {grades.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+            {grades.map((g) => (
+              <SelectItem key={g.id} value={g.id}>
+                {g.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
       <div>
         <Label>Subject</Label>
         <Select value={sId} onValueChange={setSId} disabled={!gId}>
-          <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
+          <SelectTrigger>
+            <SelectValue placeholder="Select Subject" />
+          </SelectTrigger>
           <SelectContent>
-            {subs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            {subs.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
       <div>
         <Label>Unit</Label>
         <Select value={uId} onValueChange={setUId} disabled={!sId}>
-          <SelectTrigger><SelectValue placeholder="Select Unit" /></SelectTrigger>
+          <SelectTrigger>
+            <SelectValue placeholder="Select Unit" />
+          </SelectTrigger>
           <SelectContent>
-            {uns.map(u => <SelectItem key={u.id} value={u.id}>{u.title}</SelectItem>)}
+            {uns.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                {u.title}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
       <div>
         <Label>Topic</Label>
         <Select value={tId} onValueChange={setTId} disabled={!uId}>
-          <SelectTrigger><SelectValue placeholder="Select Topic" /></SelectTrigger>
+          <SelectTrigger>
+            <SelectValue placeholder="Select Topic" />
+          </SelectTrigger>
           <SelectContent>
-            {tops.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+            {tops.map((t) => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.title}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -425,20 +531,30 @@ const LessonPlanBuilder = () => {
         <TabsContent value="lesson-plan" className="space-y-6 mt-4">
           <div className="bg-card rounded-xl border border-border p-6 shadow-card space-y-4">
             <h2 className="text-lg font-semibold text-foreground">
-              {editingLpId ? 'Edit Lesson Plan' : 'New Lesson Plan'}
+              {editingLpId ? "Edit Lesson Plan" : "New Lesson Plan"}
             </h2>
 
             <CurriculumFilters
-              gId={gradeId} sId={subjectId} uId={unitId} tId={topicId}
-              setGId={setGradeId} setSId={setSubjectId} setUId={setUnitId} setTId={setTopicId}
-              subs={subjects} uns={units} tops={topics}
+              gId={gradeId}
+              sId={subjectId}
+              uId={unitId}
+              tId={topicId}
+              setGId={setGradeId}
+              setSId={setSubjectId}
+              setUId={setUnitId}
+              setTId={setTopicId}
+              subs={subjects}
+              uns={units}
+              tops={topics}
             />
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <Label>Duration</Label>
                 <Select value={durationType} onValueChange={setDurationType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Daily">Daily</SelectItem>
                     <SelectItem value="Weekly">Weekly</SelectItem>
@@ -447,9 +563,11 @@ const LessonPlanBuilder = () => {
                 </Select>
               </div>
               <div>
-                <Label>Class Level</Label>
+                <Label>Difficulty</Label>
                 <Select value={classLevel} onValueChange={setClassLevel}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Low">Low</SelectItem>
                     <SelectItem value="Medium">Medium</SelectItem>
@@ -463,26 +581,36 @@ const LessonPlanBuilder = () => {
               <div className="bg-secondary/50 rounded-lg p-3">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">CDC Learning Outcomes (auto-loaded):</p>
                 <ul className="text-sm text-foreground space-y-1">
-                  {learningOutcomes.map((o, i) => <li key={i}>• {o}</li>)}
+                  {learningOutcomes.map((o, i) => (
+                    <li key={i}>• {o}</li>
+                  ))}
                 </ul>
               </div>
             )}
 
             <Button onClick={handleGenerateLP} disabled={generating || !topicId} className="gap-2">
-              <Sparkles className="h-4 w-4" /> {generating ? 'Generating…' : 'Generate with AI'}
+              <Sparkles className="h-4 w-4" /> {generating ? "Generating…" : "Generate with AI"}
             </Button>
 
             <div className="space-y-4">
-              <div><Label>Objectives</Label><Textarea value={objectives} onChange={e => setObjectives(e.target.value)} rows={4} /></div>
-              <div><Label>Homework / Assessment</Label><Textarea value={homework} onChange={e => setHomework(e.target.value)} rows={3} /></div>
+              <div>
+                <Label>Objectives</Label>
+                <Textarea value={objectives} onChange={(e) => setObjectives(e.target.value)} rows={4} />
+              </div>
+              <div>
+                <Label>Homework / Assessment</Label>
+                <Textarea value={homework} onChange={(e) => setHomework(e.target.value)} rows={3} />
+              </div>
             </div>
 
             <div className="flex gap-2">
               <Button onClick={handleSaveLP} disabled={!objectives && !homework} className="gap-2">
-                <Save className="h-4 w-4" /> {editingLpId ? 'Update' : 'Save'} Lesson Plan
+                <Save className="h-4 w-4" /> {editingLpId ? "Update" : "Save"} Lesson Plan
               </Button>
               {editingLpId && (
-                <Button variant="outline" onClick={resetLPForm}>Cancel Edit</Button>
+                <Button variant="outline" onClick={resetLPForm}>
+                  Cancel Edit
+                </Button>
               )}
             </div>
           </div>
@@ -490,67 +618,50 @@ const LessonPlanBuilder = () => {
           {/* Saved Lesson Plans Table */}
           {lessonPlans.length > 0 && (
             <div className="bg-card rounded-xl border border-border p-6 shadow-card">
-              <h2 className="text-lg font-semibold text-foreground mb-4">
-                Saved Lesson Plans ({lessonPlans.length})
-              </h2>
+              <h2 className="text-lg font-semibold text-foreground mb-4">Saved Lesson Plans ({lessonPlans.length})</h2>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Completed</TableHead>
                       <TableHead>Subject</TableHead>
                       <TableHead>Unit</TableHead>
                       <TableHead>Topic</TableHead>
                       <TableHead>Duration</TableHead>
                       <TableHead>Level</TableHead>
-                      <TableHead>Students Verified</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {lessonPlans.map(lp => {
-                      const vc = verificationCounts[lp.id];
-                      return (
-                        <TableRow key={lp.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={completions[lp.id] || false}
-                              onCheckedChange={(checked) => handleToggleCompletion(lp.id, !!checked)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{lp.subjectName}</TableCell>
-                          <TableCell>{lp.unitTitle}</TableCell>
-                          <TableCell>{lp.topicTitle}</TableCell>
-                          <TableCell>
-                            <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded">{lp.durationType}</span>
-                          </TableCell>
-                          <TableCell>{lp.classLevel}</TableCell>
-                          <TableCell>
-                            {completions[lp.id] && vc ? (
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                                vc.verified === vc.total && vc.total > 0 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
-                              }`}>
-                                <Users className="h-3 w-3 inline mr-1" />{vc.verified}/{vc.total}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-xs">
-                            {new Date(lp.createdAt).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell className="text-right space-x-1">
-                            <Button size="icon" variant="ghost" onClick={() => handleEditLP(lp)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDeleteLP(lp.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {lessonPlans.map((lp) => (
+                      <TableRow key={lp.id}>
+                        <TableCell className="font-medium">{lp.subjectName}</TableCell>
+                        <TableCell>{lp.unitTitle}</TableCell>
+                        <TableCell>{lp.topicTitle}</TableCell>
+                        <TableCell>
+                          <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded">
+                            {lp.durationType}
+                          </span>
+                        </TableCell>
+                        <TableCell>{lp.classLevel}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs">
+                          {new Date(lp.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Button size="icon" variant="ghost" onClick={() => handleEditLP(lp)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-destructive"
+                            onClick={() => handleDeleteLP(lp.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
@@ -562,41 +673,70 @@ const LessonPlanBuilder = () => {
         <TabsContent value="teacher-guideline" className="space-y-6 mt-4">
           <div className="bg-card rounded-xl border border-border p-6 shadow-card space-y-4">
             <h2 className="text-lg font-semibold text-foreground">
-              {editingTgId ? 'Edit Teacher Guideline' : 'Generate Teacher Guideline'}
+              {editingTgId ? "Edit Teacher Guideline" : "Generate Teacher Guideline"}
             </h2>
 
             <CurriculumFilters
-              gId={tgGradeId} sId={tgSubjectId} uId={tgUnitId} tId={tgTopicId}
-              setGId={setTgGradeId} setSId={setTgSubjectId} setUId={setTgUnitId} setTId={setTgTopicId}
-              subs={tgSubjects} uns={tgUnits} tops={tgTopics}
+              gId={tgGradeId}
+              sId={tgSubjectId}
+              uId={tgUnitId}
+              tId={tgTopicId}
+              setGId={setTgGradeId}
+              setSId={setTgSubjectId}
+              setUId={setTgUnitId}
+              setTId={setTgTopicId}
+              subs={tgSubjects}
+              uns={tgUnits}
+              tops={tgTopics}
             />
 
             {teachingGuidelinesData.length > 0 && (
               <div className="bg-secondary/50 rounded-lg p-3">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">CDC Teaching Guidelines:</p>
                 <ul className="text-sm text-foreground space-y-1">
-                  {teachingGuidelinesData.map((g, i) => <li key={i}>• {g}</li>)}
+                  {teachingGuidelinesData.map((g, i) => (
+                    <li key={i}>• {g}</li>
+                  ))}
                 </ul>
               </div>
             )}
 
             <Button onClick={handleGenerateTG} disabled={tgGenerating || !tgTopicId} className="gap-2">
-              <Sparkles className="h-4 w-4" /> {tgGenerating ? 'Generating…' : 'Generate with AI'}
+              <Sparkles className="h-4 w-4" /> {tgGenerating ? "Generating…" : "Generate with AI"}
             </Button>
 
             <div className="space-y-4">
-              <div><Label>Teaching Script</Label><Textarea value={tgTeachingScript} onChange={e => setTgTeachingScript(e.target.value)} rows={8} /></div>
-              <div><Label>Board Work</Label><Textarea value={tgBoardwork} onChange={e => setTgBoardwork(e.target.value)} rows={6} className="font-mono text-sm" /></div>
-              <div><Label>Reference Links / Videos</Label><Textarea value={tgReferenceLinks} onChange={e => setTgReferenceLinks(e.target.value)} rows={4} /></div>
-              <div><Label>Presentation Content</Label><Textarea value={tgPresentation} onChange={e => setTgPresentation(e.target.value)} rows={6} /></div>
+              <div>
+                <Label>Teaching Script</Label>
+                <Textarea value={tgTeachingScript} onChange={(e) => setTgTeachingScript(e.target.value)} rows={8} />
+              </div>
+              <div>
+                <Label>Board Work</Label>
+                <Textarea
+                  value={tgBoardwork}
+                  onChange={(e) => setTgBoardwork(e.target.value)}
+                  rows={6}
+                  className="font-mono text-sm"
+                />
+              </div>
+              <div>
+                <Label>Reference Links / Videos</Label>
+                <Textarea value={tgReferenceLinks} onChange={(e) => setTgReferenceLinks(e.target.value)} rows={4} />
+              </div>
+              <div>
+                <Label>Presentation Content</Label>
+                <Textarea value={tgPresentation} onChange={(e) => setTgPresentation(e.target.value)} rows={6} />
+              </div>
             </div>
 
             <div className="flex gap-2">
               <Button onClick={handleSaveTG} disabled={!tgTeachingScript && !tgBoardwork} className="gap-2">
-                <Save className="h-4 w-4" /> {editingTgId ? 'Update' : 'Save'} Guideline
+                <Save className="h-4 w-4" /> {editingTgId ? "Update" : "Save"} Guideline
               </Button>
               {editingTgId && (
-                <Button variant="outline" onClick={resetTGForm}>Cancel Edit</Button>
+                <Button variant="outline" onClick={resetTGForm}>
+                  Cancel Edit
+                </Button>
               )}
             </div>
           </div>
@@ -620,7 +760,7 @@ const LessonPlanBuilder = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {teacherGuidelines.map(tg => (
+                    {teacherGuidelines.map((tg) => (
                       <TableRow key={tg.id}>
                         <TableCell className="font-medium">{tg.subjectName}</TableCell>
                         <TableCell>{tg.unitTitle}</TableCell>
@@ -639,7 +779,12 @@ const LessonPlanBuilder = () => {
                           <Button size="icon" variant="ghost" onClick={() => handleEditTG(tg)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDeleteTG(tg.id)}>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-destructive"
+                            onClick={() => handleDeleteTG(tg.id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
