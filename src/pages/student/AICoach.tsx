@@ -218,8 +218,8 @@ const AICoach = () => {
       <Button onClick={newChat} className="m-3 gap-2" size="sm">
         <Plus className="h-4 w-4" /> New Chat
       </Button>
-      <ScrollArea className="flex-1">
-        <div className="px-2 space-y-1">
+      <ScrollArea className="flex-1" type="always">
+        <div className="px-2 space-y-1 pb-2">
           {conversations.map(c => (
             <button
               key={c.id}
@@ -231,10 +231,12 @@ const AICoach = () => {
               }`}
             >
               <MessageSquare className="h-4 w-4 shrink-0" />
-              <span className="truncate flex-1">{c.title}</span>
+              <div className="flex-1 min-w-0 overflow-x-auto scrollbar-thin">
+                <span className="whitespace-nowrap">{c.title}</span>
+              </div>
               <button
                 onClick={e => deleteConversation(c.id, e)}
-                className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
+                className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity shrink-0"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
