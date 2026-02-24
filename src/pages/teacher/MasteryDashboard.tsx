@@ -19,6 +19,8 @@ const MasteryDashboard = () => {
   const [quizData, setQuizData] = useState<Record<string, number>>({});
   const [challengeData, setChallengeData] = useState<Record<string, number>>({});
 
+  const studentIds = students.map((s: any) => s.id).sort().join(',');
+
   useEffect(() => {
     if (!students.length) return;
     const sIds = students.map((s: any) => s.id);
@@ -34,7 +36,7 @@ const MasteryDashboard = () => {
       (data || []).forEach(d => { counts[d.student_id] = (counts[d.student_id] || 0) + 1; });
       setChallengeData(counts);
     });
-  }, [students.length]);
+  }, [studentIds]);
 
   const avgMastery = mastery.length > 0 ? Math.round(mastery.reduce((s, m) => s + m.masteryScore, 0) / mastery.length) : 0;
   const avgHappiness = checkins.length > 0 ? Number((checkins.reduce((s, c) => s + c.happinessScore, 0) / checkins.length).toFixed(1)) : 0;
