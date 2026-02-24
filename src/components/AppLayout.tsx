@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import OfflineBanner from "./OfflineBanner";
+import LanguageSwitcher from "./LanguageSwitcher";
 import {
   LayoutDashboard,
   BookOpen,
@@ -85,7 +86,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
             <GraduationCap className="h-5 w-5 text-accent-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-primary-foreground">SikshaSathi</h1>
+            <h1 className="text-lg font-bold text-primary-foreground">NAVO.AI</h1>
             <p className="text-xs text-primary-foreground/60 capitalize">{roleKey} Panel</p>
           </div>
           <button className="lg:hidden ml-auto text-primary-foreground" onClick={() => setSidebarOpen(false)}>
@@ -144,6 +145,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
             <Menu className="h-5 w-5 text-foreground" />
           </button>
           <div className="flex-1" />
+          <LanguageSwitcher />
           <Bell className="h-5 w-5 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>

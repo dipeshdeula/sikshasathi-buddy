@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { GraduationCap, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -15,6 +16,7 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,18 +43,18 @@ const Login = () => {
           <div className="h-12 w-12 rounded-xl gradient-accent flex items-center justify-center mx-auto mb-4">
             <GraduationCap className="h-6 w-6 text-accent-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
-          <p className="text-sm text-muted-foreground mt-1">Sign in to SikshaSathi</p>
+          <h1 className="text-2xl font-bold text-foreground">{t('login.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t('login.subtitle')}</p>
         </div>
 
         <div className="bg-card rounded-xl border border-border p-6 shadow-card">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@siksha.np" required />
+              <Label htmlFor="email">{t('login.email')}</Label>
+              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@navo.ai" required />
             </div>
             <div>
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('login.password')}</Label>
               <div className="relative">
                 <Input id="password" type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required />
                 <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPw(!showPw)}>
@@ -61,13 +63,13 @@ const Login = () => {
               </div>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing in…' : 'Sign in'}
+              {loading ? t('login.submitting') : t('login.submit')}
             </Button>
           </form>
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          Don't have an account? <Link to="/register" className="text-primary font-medium hover:underline">Register</Link>
+          {t('login.noAccount')} <Link to="/register" className="text-primary font-medium hover:underline">{t('login.register')}</Link>
         </p>
       </div>
     </div>

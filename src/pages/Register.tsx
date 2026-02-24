@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 import type { Role } from '@/lib/data';
 
 const Register = () => {
@@ -18,6 +19,7 @@ const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,26 +49,26 @@ const Register = () => {
           <div className="h-12 w-12 rounded-xl gradient-accent flex items-center justify-center mx-auto mb-4">
             <GraduationCap className="h-6 w-6 text-accent-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Create account</h1>
-          <p className="text-sm text-muted-foreground mt-1">Join SikshaSathi</p>
+           <h1 className="text-2xl font-bold text-foreground">{t('register.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t('register.subtitle')}</p>
         </div>
 
         <div className="bg-card rounded-xl border border-border p-6 shadow-card">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label>Full Name</Label>
+              <Label>{t('register.name')}</Label>
               <Input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" required />
             </div>
             <div>
-              <Label>Email</Label>
-              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@siksha.np" required />
+              <Label>{t('register.email')}</Label>
+              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@navo.ai" required />
             </div>
             <div>
-              <Label>Password</Label>
+              <Label>{t('register.password')}</Label>
               <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 6 characters" required />
             </div>
             <div>
-              <Label>Role</Label>
+              <Label>{t('register.role')}</Label>
               <Select value={role} onValueChange={v => setRole(v as Role)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -80,18 +82,18 @@ const Register = () => {
 
             {role === 'STUDENT' && (
               <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-2">
-                ⓘ Student accounts require teacher verification before you can log in. Your teacher will assign your class and section.
+                ⓘ {t('register.studentNote')}
               </p>
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating…' : 'Create Account'}
+              {loading ? t('register.submitting') : t('register.submit')}
             </Button>
           </form>
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          Already have an account? <Link to="/login" className="text-primary font-medium hover:underline">Sign in</Link>
+          {t('register.hasAccount')} <Link to="/login" className="text-primary font-medium hover:underline">{t('register.login')}</Link>
         </p>
       </div>
     </div>

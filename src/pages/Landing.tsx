@@ -1,21 +1,28 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { GraduationCap, BookOpen, Bot, BarChart3, Shield, Wifi, ArrowRight, CheckCircle2, FlaskConical, Calculator } from 'lucide-react';
+import { GraduationCap, BookOpen, Bot, BarChart3, Shield, Wifi, ArrowRight, CheckCircle2, FlaskConical, Calculator, Clock, Users, Heart, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { useState, useEffect } from 'react';
 
-const features = [
-  { icon: <BookOpen className="h-6 w-6" />, title: 'CDC-Aligned Lessons', desc: 'Generate lesson plans, scripts, and boardwork aligned to Nepal curriculum.' },
-  { icon: <Bot className="h-6 w-6" />, title: 'AI Learning Coach', desc: 'Students get step-by-step hints — never direct answers. Safe & supportive.' },
-  { icon: <BarChart3 className="h-6 w-6" />, title: 'Mastery Tracking', desc: 'See which topics need attention. No public leaderboards, just growth.' },
-  { icon: <Shield className="h-6 w-6" />, title: 'Safe & Private', desc: 'Strict RBAC. Parents see only approved reports. Student data is protected.' },
-  { icon: <Wifi className="h-6 w-6" />, title: 'Offline Tolerant', desc: 'Works on slow internet. Cached content available even without connection.' },
-];
-
-const bullets = [
-  'CDC lesson plans + exit quizzes, fast and helpful',
-  'Identify weak topics + wellbeing patterns early',
-  'Weekly parent snapshot with simple interventions',
-];
+/* Typewriter Hook */
+const useTypewriter = (text: string, speed = 80) => {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    setDisplayed('');
+    setDone(false);
+    let i = 0;
+    const iv = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) { clearInterval(iv); setDone(true); }
+    }, speed);
+    return () => clearInterval(iv);
+  }, [text, speed]);
+  return { displayed, done };
+};
 
 /* Subject icons that orbit the robot */
 const subjectIcons = [
@@ -26,6 +33,26 @@ const subjectIcons = [
 ];
 
 const Landing = () => {
+  const { t } = useTranslation();
+  const { displayed: typedBrand, done: brandDone } = useTypewriter(t('hero.headline'), 100);
+
+  const features = [
+    { icon: <BookOpen className="h-6 w-6" />, title: t('features.cdcTitle'), desc: t('features.cdcDesc') },
+    { icon: <Bot className="h-6 w-6" />, title: t('features.aiTitle'), desc: t('features.aiDesc') },
+    { icon: <BarChart3 className="h-6 w-6" />, title: t('features.masteryTitle'), desc: t('features.masteryDesc') },
+    { icon: <Shield className="h-6 w-6" />, title: t('features.safeTitle'), desc: t('features.safeDesc') },
+    { icon: <Wifi className="h-6 w-6" />, title: t('features.offlineTitle'), desc: t('features.offlineDesc') },
+  ];
+
+  const bullets = [t('hero.bullet1'), t('hero.bullet2'), t('hero.bullet3')];
+
+  const stats = [
+    { icon: <Clock className="h-6 w-6" />, value: t('stats.stat1Value'), label: t('stats.stat1Label'), desc: t('stats.stat1Desc') },
+    { icon: <Users className="h-6 w-6" />, value: t('stats.stat2Value'), label: t('stats.stat2Label'), desc: t('stats.stat2Desc') },
+    { icon: <Heart className="h-6 w-6" />, value: t('stats.stat3Value'), label: t('stats.stat3Label'), desc: t('stats.stat3Desc') },
+    { icon: <Eye className="h-6 w-6" />, value: t('stats.stat4Value'), label: t('stats.stat4Label'), desc: t('stats.stat4Desc') },
+  ];
+
   const scrollToFeatures = () => {
     document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -39,14 +66,15 @@ const Landing = () => {
             <div className="h-9 w-9 rounded-lg gradient-accent flex items-center justify-center">
               <GraduationCap className="h-5 w-5 text-accent-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">NOVA A.I.</span>
+            <span className="text-xl font-bold text-foreground">NAVO.AI</span>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
             <Link to="/login">
-              <Button variant="ghost" size="sm">Log in</Button>
+              <Button variant="ghost" size="sm">{t('nav.login')}</Button>
             </Link>
             <Link to="/register">
-              <Button size="sm">Get Started</Button>
+              <Button size="sm">{t('nav.getStarted')}</Button>
             </Link>
           </div>
         </div>
@@ -54,7 +82,6 @@ const Landing = () => {
 
       {/* Hero */}
       <section className="relative overflow-hidden min-h-[90vh] flex items-center" role="banner">
-        {/* Subtle gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-16 lg:py-24 w-full">
@@ -67,26 +94,46 @@ const Landing = () => {
               className="text-center lg:text-left"
             >
               <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-sm font-medium mb-6">
-                <span>🇳🇵</span> Built for Nepal Schools • Offline-First
+                {t('hero.chip')}
               </div>
 
+              {/* Typewriter brand name */}
               <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-foreground leading-tight">
-                NOVA A.I —{' '}
-                <span className="text-gradient">Learning + Emotional Support</span>{' '}
-                for Every Classroom
+                <span className="text-gradient">{typedBrand}</span>
+                <span className={`inline-block w-[3px] h-[0.8em] bg-primary ml-1 align-middle ${brandDone ? 'animate-pulse' : ''}`} />
               </h1>
 
+              {/* Slogan */}
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: brandDone ? 1 : 0 }}
+                transition={{ duration: 0.6 }}
+                className="mt-3 text-lg sm:text-xl lg:text-2xl font-semibold text-primary"
+              >
+                {t('hero.slogan')}
+              </motion.p>
+
+              {/* Nepali tagline */}
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: brandDone ? 1 : 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="mt-1 text-base sm:text-lg text-muted-foreground italic"
+              >
+                {t('taglineNepali')}
+              </motion.p>
+
               <p className="mt-5 text-base lg:text-lg text-muted-foreground max-w-xl mx-auto lg:mx-0">
-                Teacher-first copilot that creates CDC-aligned lessons, tracks learning gaps + wellbeing, and sends weekly parent insights.
+                {t('hero.subtext')}
               </p>
 
               <ul className="mt-6 space-y-2.5 text-sm text-muted-foreground max-w-md mx-auto lg:mx-0">
-                {bullets.map((b) => (
+                {bullets.map((b, i) => (
                   <motion.li
-                    key={b}
+                    key={i}
                     initial={{ opacity: 0, x: -16 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5, duration: 0.4 }}
+                    transition={{ delay: 0.5 + i * 0.15, duration: 0.4 }}
                     className="flex items-start gap-2"
                   >
                     <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
@@ -103,12 +150,12 @@ const Landing = () => {
               >
                 <Link to="/register">
                   <Button size="lg" className="gap-2">
-                    Start Free <ArrowRight className="h-4 w-4" />
+                    {t('hero.ctaPrimary')} <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
                 <Link to="/login">
                   <Button size="lg" variant="outline">
-                    Demo Login
+                    {t('hero.ctaSecondary')}
                   </Button>
                 </Link>
               </motion.div>
@@ -117,7 +164,7 @@ const Landing = () => {
                 onClick={scrollToFeatures}
                 className="mt-4 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer mx-auto lg:mx-0 block"
               >
-                See how it works ↓
+                {t('hero.ctaScroll')}
               </button>
             </motion.div>
 
@@ -129,15 +176,14 @@ const Landing = () => {
               className="flex items-center justify-center"
             >
               <div className="relative w-64 h-64 sm:w-80 sm:h-80 lg:w-96 lg:h-96">
-                {/* Orbiting icons */}
                 <motion.div
                   className="absolute inset-0"
                   animate={{ rotate: 360 }}
                   transition={{ repeat: Infinity, duration: 18, ease: 'linear' }}
                 >
-                  {subjectIcons.map((icon, i) => {
+                  {subjectIcons.map((icon) => {
                     const rad = (icon.angle * Math.PI) / 180;
-                    const radius = 46; // percent from center
+                    const radius = 46;
                     const x = 50 + radius * Math.cos(rad);
                     const y = 50 + radius * Math.sin(rad);
                     return (
@@ -165,7 +211,6 @@ const Landing = () => {
                   })}
                 </motion.div>
 
-                {/* Robot illustration */}
                 <motion.div
                   className="absolute inset-0 flex items-center justify-center"
                   animate={{ y: [0, -8, 0] }}
@@ -185,10 +230,44 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Stats — Reshaping Education */}
+      <section className="bg-card border-y border-border py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-3">{t('stats.title')}</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">{t('stats.subtitle')}</p>
+          </motion.div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {stats.map((s, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="text-center p-6 rounded-xl border border-border bg-background"
+              >
+                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mx-auto mb-3">
+                  {s.icon}
+                </div>
+                <div className="text-3xl font-bold text-gradient mb-1">{s.value}</div>
+                <div className="text-sm font-semibold text-foreground mb-1">{s.label}</div>
+                <div className="text-xs text-muted-foreground">{s.desc}</div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section id="features" className="max-w-6xl mx-auto px-4 py-20">
         <h2 className="text-2xl lg:text-3xl font-bold text-center text-foreground mb-12">
-          Everything your classroom needs
+          {t('features.title')}
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => (
@@ -214,14 +293,14 @@ const Landing = () => {
       <section className="gradient-hero py-16">
         <div className="max-w-3xl mx-auto px-4 text-center">
           <h2 className="text-2xl lg:text-3xl font-bold text-primary-foreground mb-4">
-            Ready to transform your classroom?
+            {t('cta.title')}
           </h2>
           <p className="text-primary-foreground/70 mb-8">
-            Join teachers across Nepal using NOVA A.I. to save time and help every student succeed.
+            {t('cta.subtitle')}
           </p>
           <Link to="/register">
             <Button size="lg" variant="secondary" className="gap-2">
-              Get Started Now <ArrowRight className="h-4 w-4" />
+              {t('cta.button')} <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>
@@ -230,7 +309,7 @@ const Landing = () => {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="max-w-6xl mx-auto px-4 text-center text-sm text-muted-foreground">
-          © 2026 NOVA A.I. Built with ❤️ for Nepal schools.
+          {t('footer.copy')}
         </div>
       </footer>
     </div>
