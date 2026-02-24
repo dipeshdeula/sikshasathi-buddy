@@ -10,11 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Search, Plus, Eye, Trash2, UserPlus, BarChart3, SmilePlus, Trophy } from 'lucide-react';
+import { Users, Search, Eye, Trash2, UserPlus, BarChart3, SmilePlus, Trophy, CheckCircle, XCircle, Pencil, ShieldCheck, BookOpen } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
-const CLASS_LEVELS = ['Beginner', 'Basic', 'Medium', 'Advanced', 'Expert'];
-const SECTIONS = ['A', 'B', 'C', 'D'];
+const CLASS_LEVELS = ['1', '2', '3'];
+const SECTIONS = ['A', 'B', 'C'];
+
+interface StudentProfile {
+  id: string;
+  name: string;
+  is_verified: boolean;
+  preferred_class_level: string | null;
+  preferred_section: string | null;
+}
 
 interface StudentMetrics {
   id: string;
@@ -23,14 +31,16 @@ interface StudentMetrics {
   avgHappiness: number;
   challengesSubmitted: number;
   quizAttempts: number;
+  quizAvgScore: number;
   badgeCount: number;
+  lessonsVerified: number;
 }
 
 const StudentRoster = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { data: classes, refetch: refetchClasses } = useTeacherClasses(user?.id);
-  
+
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
   const classId = selectedClassId || classes[0]?.id;
   const { data: students, refetch: refetchStudents } = useClassStudents(classId);
@@ -38,58 +48,95 @@ const StudentRoster = () => {
   const { data: checkins } = useClassCheckins(classId);
 
   const [search, setSearch] = useState('');
-  const [classInfo, setClassInfo] = useState<{ section: string | null; class_level: string | null }>({ section: null, class_level: null });
   const [showCreate, setShowCreate] = useState(false);
   const [showView, setShowView] = useState<StudentMetrics | null>(null);
+  const [showEdit, setShowEdit] = useState<StudentProfile | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editClassLevel, setEditClassLevel] = useState('');
+  const [editSection, setEditSection] = useState('');
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [creating, setCreating] = useState(false);
 
+  // Extended student profiles with verification status
+  const [studentProfiles, setStudentProfiles] = useState<Record<string, StudentProfile>>({});
+  // Unverified students (not yet in any class)
+  const [pendingStudents, setPendingStudents] = useState<StudentProfile[]>([]);
+
   // Extra metrics
   const [challengeData, setChallengeData] = useState<Record<string, number>>({});
-  const [quizData, setQuizData] = useState<Record<string, number>>({});
+  const [quizData, setQuizData] = useState<Record<string, { attempts: number; avgScore: number }>>({});
   const [badgeData, setBadgeData] = useState<Record<string, number>>({});
+  const [lessonVerifData, setLessonVerifData] = useState<Record<string, number>>({});
 
-  useEffect(() => {
-    if (classId) {
-      supabase.from('classes').select('section, class_level').eq('id', classId).single().then(({ data }) => {
-        if (data) setClassInfo({ section: data.section, class_level: data.class_level });
-      });
-    }
-  }, [classId]);
-
+  // Fetch full profiles for enrolled students
   useEffect(() => {
     if (!students.length) return;
     const sIds = students.map((s: any) => s.id);
 
-    // Challenge submissions count
+    supabase.from('profiles').select('id, full_name, is_verified, preferred_class_level, preferred_section').in('id', sIds).then(({ data }) => {
+      const map: Record<string, StudentProfile> = {};
+      (data || []).forEach((p: any) => { map[p.id] = { id: p.id, name: p.full_name, is_verified: p.is_verified, preferred_class_level: p.preferred_class_level, preferred_section: p.preferred_section }; });
+      setStudentProfiles(map);
+    });
+
+    // Metrics
     supabase.from('challenge_submissions').select('student_id').in('student_id', sIds).then(({ data }) => {
       const counts: Record<string, number> = {};
       (data || []).forEach(d => { counts[d.student_id] = (counts[d.student_id] || 0) + 1; });
       setChallengeData(counts);
     });
-    // Quiz attempts count
-    supabase.from('quiz_attempts').select('student_id').in('student_id', sIds).then(({ data }) => {
-      const counts: Record<string, number> = {};
-      (data || []).forEach((d: any) => { counts[d.student_id] = (counts[d.student_id] || 0) + 1; });
-      setQuizData(counts);
+    supabase.from('quiz_attempts').select('student_id, score').in('student_id', sIds).then(({ data }) => {
+      const map: Record<string, { total: number; sum: number }> = {};
+      (data || []).forEach((d: any) => {
+        if (!map[d.student_id]) map[d.student_id] = { total: 0, sum: 0 };
+        map[d.student_id].total++;
+        map[d.student_id].sum += (d.score || 0);
+      });
+      const result: Record<string, { attempts: number; avgScore: number }> = {};
+      Object.entries(map).forEach(([k, v]) => { result[k] = { attempts: v.total, avgScore: Math.round(v.sum / v.total) }; });
+      setQuizData(result);
     });
-    // Badge count
     supabase.from('student_badges').select('student_id').in('student_id', sIds).then(({ data }) => {
       const counts: Record<string, number> = {};
       (data || []).forEach(d => { counts[d.student_id] = (counts[d.student_id] || 0) + 1; });
       setBadgeData(counts);
     });
+    supabase.from('student_lesson_verifications').select('student_id').in('student_id', sIds).eq('is_verified', true).then(({ data }) => {
+      const counts: Record<string, number> = {};
+      (data || []).forEach((d: any) => { counts[d.student_id] = (counts[d.student_id] || 0) + 1; });
+      setLessonVerifData(counts);
+    });
   }, [students.length]);
 
-  const updateClassField = async (field: 'section' | 'class_level', value: string) => {
-    if (!classId) return;
-    const { error } = await supabase.from('classes').update({ [field]: value }).eq('id', classId);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    setClassInfo(prev => ({ ...prev, [field]: value }));
-    toast({ title: `${field === 'section' ? 'Section' : 'Class Level'} updated` });
-  };
+  // Fetch pending (unverified) students
+  useEffect(() => {
+    const fetchPending = async () => {
+      // Get all unverified students
+      const { data: unverified } = await supabase
+        .from('profiles')
+        .select('id, full_name, is_verified, preferred_class_level, preferred_section')
+        .eq('is_verified', false);
+
+      if (!unverified) return;
+
+      // Filter to only STUDENT role
+      const ids = unverified.map(u => u.id);
+      if (!ids.length) { setPendingStudents([]); return; }
+      const { data: roles } = await supabase.from('user_roles').select('user_id, role').in('user_id', ids);
+      const studentIds = new Set((roles || []).filter(r => r.role === 'STUDENT').map(r => r.user_id));
+
+      setPendingStudents(unverified.filter(u => studentIds.has(u.id)).map(u => ({
+        id: u.id,
+        name: u.full_name,
+        is_verified: u.is_verified,
+        preferred_class_level: (u as any).preferred_class_level,
+        preferred_section: (u as any).preferred_section,
+      })));
+    };
+    fetchPending();
+  }, [students.length]);
 
   const getStudentMetrics = (sId: string, sName: string): StudentMetrics => {
     const scores = mastery.filter(m => m.studentId === sId);
@@ -99,9 +146,26 @@ const StudentRoster = () => {
     return {
       id: sId, name: sName, avgMastery, avgHappiness,
       challengesSubmitted: challengeData[sId] || 0,
-      quizAttempts: quizData[sId] || 0,
+      quizAttempts: quizData[sId]?.attempts || 0,
+      quizAvgScore: quizData[sId]?.avgScore || 0,
       badgeCount: badgeData[sId] || 0,
+      lessonsVerified: lessonVerifData[sId] || 0,
     };
+  };
+
+  const handleVerifyStudent = async (studentId: string, classLvl?: string, sect?: string) => {
+    if (!classId) { toast({ title: 'No class selected', variant: 'destructive' }); return; }
+    // Update profile as verified
+    await supabase.from('profiles').update({ is_verified: true } as any).eq('id', studentId);
+    // Add to class
+    const { error } = await supabase.from('class_students').insert({ class_id: classId, student_id: studentId });
+    if (error && !error.message.includes('duplicate')) {
+      toast({ title: 'Error adding to class', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Student verified and added to class!' });
+    refetchStudents();
+    setPendingStudents(prev => prev.filter(s => s.id !== studentId));
   };
 
   const handleCreateStudent = async () => {
@@ -110,13 +174,11 @@ const StudentRoster = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
-
       const res = await supabase.functions.invoke('create-student', {
         body: { full_name: newName.trim(), email: newEmail.trim(), password: newPassword.trim(), class_id: classId },
       });
       if (res.error) throw new Error(res.error.message);
       if (res.data?.error) throw new Error(res.data.error);
-
       toast({ title: 'Student account created and added to class!' });
       setNewName(''); setNewEmail(''); setNewPassword(''); setShowCreate(false);
       refetchStudents();
@@ -134,6 +196,26 @@ const StudentRoster = () => {
     refetchStudents();
   };
 
+  const handleEditStudent = async () => {
+    if (!showEdit) return;
+    const updates: any = {};
+    if (editName.trim()) updates.full_name = editName.trim();
+    if (editClassLevel) updates.preferred_class_level = editClassLevel;
+    if (editSection) updates.preferred_section = editSection;
+    const { error } = await supabase.from('profiles').update(updates).eq('id', showEdit.id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Student updated' });
+    setShowEdit(null);
+    refetchStudents();
+  };
+
+  const openEdit = (s: StudentProfile) => {
+    setShowEdit(s);
+    setEditName(s.name);
+    setEditClassLevel(s.preferred_class_level || '');
+    setEditSection(s.preferred_section || '');
+  };
+
   const filtered = students.filter((s: any) => s.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -145,27 +227,63 @@ const StudentRoster = () => {
         <Button onClick={() => setShowCreate(true)}><UserPlus className="h-4 w-4 mr-2" /> Add Student</Button>
       </div>
 
-      {/* Class Info */}
+      {/* Class Selector */}
       {classes.length > 0 && (
         <div className="bg-card rounded-xl border border-border p-4 shadow-card">
           <div className="flex flex-wrap items-center gap-3">
-            {classes.length > 1 && (
+            {classes.length > 1 ? (
               <Select value={classId || ''} onValueChange={v => setSelectedClassId(v)}>
                 <SelectTrigger className="w-44 h-8 text-xs"><SelectValue placeholder="Select Class" /></SelectTrigger>
                 <SelectContent>{classes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
+            ) : (
+              <span className="text-sm font-medium text-foreground">{classes[0]?.name}</span>
             )}
-            {classes.length === 1 && <span className="text-sm font-medium text-foreground">{classes[0]?.name}</span>}
             <Badge variant="secondary">{students.length} students</Badge>
-            <Select value={classInfo.class_level || ''} onValueChange={v => updateClassField('class_level', v)}>
-              <SelectTrigger className="w-32 h-8 text-xs"><SelectValue placeholder="Class Level" /></SelectTrigger>
-              <SelectContent>{CLASS_LEVELS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-            </Select>
-            <Select value={classInfo.section || ''} onValueChange={v => updateClassField('section', v)}>
-              <SelectTrigger className="w-28 h-8 text-xs"><SelectValue placeholder="Section" /></SelectTrigger>
-              <SelectContent>{SECTIONS.map(s => <SelectItem key={s} value={s}>Section {s}</SelectItem>)}</SelectContent>
-            </Select>
           </div>
+        </div>
+      )}
+
+      {/* Pending Verification */}
+      {pendingStudents.length > 0 && (
+        <div className="bg-card rounded-xl border border-border p-5 shadow-card space-y-3">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-warning" /> Pending Verification ({pendingStudents.length})
+          </h2>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Student</TableHead>
+                <TableHead>Preferred Class</TableHead>
+                <TableHead>Preferred Section</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pendingStudents.map(s => (
+                <TableRow key={s.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full bg-warning/10 text-warning flex items-center justify-center text-xs font-bold">{s.name.charAt(0)}</div>
+                      <span className="font-medium text-sm">{s.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm">{s.preferred_class_level ? `Class ${s.preferred_class_level}` : '—'}</TableCell>
+                  <TableCell className="text-sm">{s.preferred_section ? `Section ${s.preferred_section}` : '—'}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="default" onClick={() => handleVerifyStudent(s.id, s.preferred_class_level || undefined, s.preferred_section || undefined)}>
+                        <CheckCircle className="h-3 w-3 mr-1" /> Verify & Add
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -188,10 +306,10 @@ const StudentRoster = () => {
               <TableRow>
                 <TableHead>#</TableHead>
                 <TableHead>Student</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Mastery</TableHead>
-                <TableHead>Happiness</TableHead>
-                <TableHead>Challenges</TableHead>
                 <TableHead>Quizzes</TableHead>
+                <TableHead>Challenges</TableHead>
                 <TableHead>Badges</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -199,16 +317,22 @@ const StudentRoster = () => {
             <TableBody>
               {filtered.map((s: any, i: number) => {
                 const m = getStudentMetrics(s.id, s.name);
+                const profile = studentProfiles[s.id];
                 return (
                   <TableRow key={s.id}>
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                          {s.name.charAt(0)}
-                        </div>
+                        <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">{s.name.charAt(0)}</div>
                         <span className="font-medium text-sm">{s.name}</span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {profile?.is_verified ? (
+                        <Badge variant="default" className="text-xs"><CheckCircle className="h-3 w-3 mr-1" />Verified</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs"><XCircle className="h-3 w-3 mr-1" />Pending</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -216,16 +340,14 @@ const StudentRoster = () => {
                         <span className={`text-xs font-medium ${m.avgMastery < 50 ? 'text-destructive' : 'text-success'}`}>{m.avgMastery}%</span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <span className="text-sm">{m.avgHappiness > 0 ? `${m.avgHappiness >= 4 ? '😊' : m.avgHappiness >= 3 ? '🙂' : '😐'} ${m.avgHappiness}` : '—'}</span>
-                    </TableCell>
-                    <TableCell className="text-sm">{m.challengesSubmitted}</TableCell>
                     <TableCell className="text-sm">{m.quizAttempts}</TableCell>
+                    <TableCell className="text-sm">{m.challengesSubmitted}</TableCell>
                     <TableCell className="text-sm">{m.badgeCount > 0 ? <Badge variant="secondary">{m.badgeCount}</Badge> : '—'}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => setShowView(m)}><Eye className="h-3 w-3" /></Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleRemoveStudent(s.id)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => setShowView(m)} title="View details"><Eye className="h-3 w-3" /></Button>
+                        {profile && <Button variant="ghost" size="sm" onClick={() => openEdit(profile)} title="Edit"><Pencil className="h-3 w-3" /></Button>}
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveStudent(s.id)} title="Remove"><Trash2 className="h-3 w-3 text-destructive" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -244,38 +366,51 @@ const StudentRoster = () => {
             <div><Label>Full Name</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Student name" /></div>
             <div><Label>Email</Label><Input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="student@email.com" type="email" /></div>
             <div><Label>Password</Label><Input value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Password" type="password" /></div>
+            <p className="text-xs text-muted-foreground">Student will be auto-verified and added to the selected class.</p>
             <Button onClick={handleCreateStudent} className="w-full" disabled={creating}>{creating ? 'Creating…' : 'Create & Add to Class'}</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* View Student Dialog */}
-      <Dialog open={!!showView} onOpenChange={() => setShowView(null)}>
+      {/* Edit Student Dialog */}
+      <Dialog open={!!showEdit} onOpenChange={() => setShowEdit(null)}>
         <DialogContent>
+          <DialogHeader><DialogTitle>Edit Student — {showEdit?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Full Name</Label><Input value={editName} onChange={e => setEditName(e.target.value)} /></div>
+            <div>
+              <Label>Class Level</Label>
+              <Select value={editClassLevel} onValueChange={setEditClassLevel}>
+                <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
+                <SelectContent>{CLASS_LEVELS.map(l => <SelectItem key={l} value={l}>Class {l}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Section</Label>
+              <Select value={editSection} onValueChange={setEditSection}>
+                <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
+                <SelectContent>{SECTIONS.map(s => <SelectItem key={s} value={s}>Section {s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleEditStudent} className="w-full">Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Student Metrics Dialog */}
+      <Dialog open={!!showView} onOpenChange={() => setShowView(null)}>
+        <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Student Details — {showView?.name}</DialogTitle></DialogHeader>
           {showView && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-secondary rounded-lg p-3 text-center">
-                  <BarChart3 className="h-5 w-5 text-primary mx-auto mb-1" />
-                  <p className="text-xl font-bold text-foreground">{showView.avgMastery}%</p>
-                  <p className="text-xs text-muted-foreground">Mastery</p>
-                </div>
-                <div className="bg-secondary rounded-lg p-3 text-center">
-                  <SmilePlus className="h-5 w-5 text-warning mx-auto mb-1" />
-                  <p className="text-xl font-bold text-foreground">{showView.avgHappiness || '—'}</p>
-                  <p className="text-xs text-muted-foreground">Happiness</p>
-                </div>
-                <div className="bg-secondary rounded-lg p-3 text-center">
-                  <Trophy className="h-5 w-5 text-accent mx-auto mb-1" />
-                  <p className="text-xl font-bold text-foreground">{showView.challengesSubmitted}</p>
-                  <p className="text-xs text-muted-foreground">Challenges</p>
-                </div>
-                <div className="bg-secondary rounded-lg p-3 text-center">
-                  <Trophy className="h-5 w-5 text-success mx-auto mb-1" />
-                  <p className="text-xl font-bold text-foreground">{showView.badgeCount}</p>
-                  <p className="text-xs text-muted-foreground">Badges</p>
-                </div>
+                <MetricCard icon={<BarChart3 className="h-5 w-5 text-primary" />} value={`${showView.avgMastery}%`} label="Avg Mastery" />
+                <MetricCard icon={<SmilePlus className="h-5 w-5 text-warning" />} value={showView.avgHappiness > 0 ? `${showView.avgHappiness}` : '—'} label="Happiness" />
+                <MetricCard icon={<BookOpen className="h-5 w-5 text-accent" />} value={`${showView.quizAttempts}`} label="Quizzes Taken" />
+                <MetricCard icon={<BarChart3 className="h-5 w-5 text-success" />} value={showView.quizAvgScore > 0 ? `${showView.quizAvgScore}%` : '—'} label="Quiz Avg Score" />
+                <MetricCard icon={<Trophy className="h-5 w-5 text-accent" />} value={`${showView.challengesSubmitted}`} label="Challenges Done" />
+                <MetricCard icon={<Trophy className="h-5 w-5 text-success" />} value={`${showView.badgeCount}`} label="Badges Earned" />
+                <MetricCard icon={<CheckCircle className="h-5 w-5 text-primary" />} value={`${showView.lessonsVerified}`} label="Lessons Verified" />
               </div>
             </div>
           )}
@@ -291,5 +426,13 @@ const StudentRoster = () => {
     </div>
   );
 };
+
+const MetricCard = ({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) => (
+  <div className="bg-secondary rounded-lg p-3 text-center">
+    <div className="mx-auto mb-1 flex justify-center">{icon}</div>
+    <p className="text-xl font-bold text-foreground">{value}</p>
+    <p className="text-xs text-muted-foreground">{label}</p>
+  </div>
+);
 
 export default StudentRoster;

@@ -9,11 +9,16 @@ import { GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Role } from '@/lib/data';
 
+const CLASS_LEVELS = ['1', '2', '3'];
+const SECTIONS = ['A', 'B', 'C'];
+
 const Register = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('STUDENT');
+  const [classLevel, setClassLevel] = useState('');
+  const [section, setSection] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -21,12 +26,27 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) { toast({ title: 'Password too short', description: 'Minimum 6 characters', variant: 'destructive' }); return; }
+    if (password.length < 6) {
+      toast({ title: 'Password too short', description: 'Minimum 6 characters', variant: 'destructive' });
+      return;
+    }
+    if (role === 'STUDENT' && (!classLevel || !section)) {
+      toast({ title: 'Missing fields', description: 'Please select class level and section', variant: 'destructive' });
+      return;
+    }
     setLoading(true);
-    const ok = await register(name, email, password, role);
+    const ok = await register(name, email, password, role, role === 'STUDENT' ? classLevel : undefined, role === 'STUDENT' ? section : undefined);
     setLoading(false);
-    if (ok) navigate(`/${role.toLowerCase()}`);
-    else toast({ title: 'Registration failed', description: 'Email may already exist or check your connection', variant: 'destructive' });
+    if (ok) {
+      if (role === 'STUDENT') {
+        toast({ title: 'Account created!', description: 'Your account is pending verification by your teacher. Please wait for approval.' });
+        navigate('/login');
+      } else {
+        navigate(`/${role.toLowerCase()}`);
+      }
+    } else {
+      toast({ title: 'Registration failed', description: 'Email may already exist or check your connection', variant: 'destructive' });
+    }
   };
 
   return (
@@ -65,6 +85,33 @@ const Register = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {role === 'STUDENT' && (
+              <>
+                <div>
+                  <Label>Class Level</Label>
+                  <Select value={classLevel} onValueChange={setClassLevel}>
+                    <SelectTrigger><SelectValue placeholder="Select class level" /></SelectTrigger>
+                    <SelectContent>
+                      {CLASS_LEVELS.map(l => <SelectItem key={l} value={l}>Class {l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Section</Label>
+                  <Select value={section} onValueChange={setSection}>
+                    <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
+                    <SelectContent>
+                      {SECTIONS.map(s => <SelectItem key={s} value={s}>Section {s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-2">
+                  ⓘ Student accounts require teacher verification before you can log in.
+                </p>
+              </>
+            )}
+
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Creating…' : 'Create Account'}
             </Button>

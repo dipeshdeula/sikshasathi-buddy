@@ -7,6 +7,7 @@ export interface AppUser {
   name: string;
   email: string;
   role: Role;
+  isVerified?: boolean;
 }
 
 export interface Grade {

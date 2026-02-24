@@ -564,16 +564,25 @@ export type Database = {
           created_at: string | null
           full_name: string
           id: string
+          is_verified: boolean
+          preferred_class_level: string | null
+          preferred_section: string | null
         }
         Insert: {
           created_at?: string | null
           full_name?: string
           id: string
+          is_verified?: boolean
+          preferred_class_level?: string | null
+          preferred_section?: string | null
         }
         Update: {
           created_at?: string | null
           full_name?: string
           id?: string
+          is_verified?: boolean
+          preferred_class_level?: string | null
+          preferred_section?: string | null
         }
         Relationships: []
       }
