@@ -41,24 +41,10 @@ const QuizSolver = () => {
     if (!user) return;
     setLoading(true);
 
-    // Get student's enrolled classes
-    const { data: enrollment } = await supabase
-      .from('class_students')
-      .select('class_id')
-      .eq('student_id', user.id);
-    const classIds = (enrollment || []).map(e => e.class_id);
-
-    if (classIds.length === 0) {
-      setQuizzes([]);
-      setAttempts({});
-      setLoading(false);
-      return;
-    }
-
+    // RLS handles visibility - just fetch published quizzes
     const { data, error } = await supabase
       .from('quizzes')
       .select('*')
-      .in('class_id', classIds)
       .eq('is_published', true)
       .order('created_at', { ascending: false });
 
