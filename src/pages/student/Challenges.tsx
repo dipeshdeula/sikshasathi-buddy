@@ -44,42 +44,80 @@ const EMOJIS = [
 const StudentChallenges = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [submissions, setSubmissions] = useState<Record<string, MySubmission>>({});
   const [badges, setBadges] = useState<MyBadge[]>([]);
   const [answerDraft, setAnswerDraft] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<Record<string, File>>({});
-  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user?.id) { fetchChallenges(); fetchBadges(); }
   }, [user?.id]);
 
   const fetchChallenges = async () => {
-    const { data } = await supabase.from('challenges').select('*').eq('is_active', true).order('created_at', { ascending: false });
+    if (!user) return;
+    setLoading(true);
+
+    // Get student's enrolled classes first
+    const { data: enrollment } = await supabase
+      .from('class_students')
+      .select('class_id')
+      .eq('student_id', user.id);
+    const classIds = (enrollment || []).map(e => e.class_id);
+
+    if (classIds.length === 0) {
+      setChallenges([]);
+      setSubmissions({});
+      setLoading(false);
+      return;
+    }
+
+    // Fetch active challenges for enrolled classes
+    const { data, error } = await supabase
+      .from('challenges')
+      .select('*')
+      .in('class_id', classIds)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching challenges:', error);
+      toast({ title: 'Error loading challenges', description: error.message, variant: 'destructive' });
+    }
     setChallenges(data || []);
-    const { data: subs } = await supabase.from('challenge_submissions').select('*').eq('student_id', user!.id);
+
+    // Get my submissions
+    const { data: subs } = await supabase
+      .from('challenge_submissions')
+      .select('*')
+      .eq('student_id', user.id);
     const subMap: Record<string, MySubmission> = {};
-    (subs || []).forEach(s => { subMap[s.challenge_id] = s; });
+    (subs || []).forEach(s => { subMap[s.challenge_id] = s as unknown as MySubmission; });
     setSubmissions(subMap);
+    setLoading(false);
   };
 
   const fetchBadges = async () => {
-    const { data } = await supabase.from('student_badges').select('*').eq('student_id', user!.id).order('awarded_at', { ascending: false });
+    if (!user) return;
+    const { data } = await supabase
+      .from('student_badges')
+      .select('*')
+      .eq('student_id', user.id)
+      .order('awarded_at', { ascending: false });
     setBadges(data || []);
   };
 
   const handleSubmit = async (challengeId: string) => {
     const answer = answerDraft[challengeId]?.trim();
-    if (!answer) return;
+    if (!answer || !user) return;
     setSubmitting(true);
 
     let attachmentUrl: string | null = null;
     const file = attachments[challengeId];
     if (file) {
-      const path = `${user!.id}/${challengeId}/${file.name}`;
+      const path = `${user.id}/${challengeId}/${file.name}`;
       const { error: uploadErr } = await supabase.storage.from('challenge-attachments').upload(path, file);
       if (!uploadErr) {
         const { data: urlData } = supabase.storage.from('challenge-attachments').getPublicUrl(path);
@@ -88,9 +126,18 @@ const StudentChallenges = () => {
     }
 
     const { error } = await supabase.from('challenge_submissions').insert({
-      challenge_id: challengeId, student_id: user!.id, answer_text: answer, attachment_url: attachmentUrl,
+      challenge_id: challengeId,
+      student_id: user.id,
+      answer_text: answer,
+      attachment_url: attachmentUrl,
     });
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); setSubmitting(false); return; }
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      setSubmitting(false);
+      return;
+    }
+
     toast({ title: 'Answer submitted!' });
     setAnswerDraft(prev => ({ ...prev, [challengeId]: '' }));
     setAttachments(prev => { const n = { ...prev }; delete n[challengeId]; return n; });
@@ -131,112 +178,154 @@ const StudentChallenges = () => {
         </div>
       )}
 
-      <div className="space-y-4">
-        {challenges.map(c => {
-          const sub = submissions[c.id];
-          return (
-            <div key={c.id} className="bg-card rounded-xl border border-border p-5 shadow-card">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-semibold text-foreground">{c.title}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">{c.description}</p>
-                  {c.due_date && (
-                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> Due: {new Date(c.due_date).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-                {sub?.is_winner && <Badge className="bg-warning text-warning-foreground"><Trophy className="h-3 w-3 mr-1" />Winner!</Badge>}
-              </div>
-
-              {sub ? (
-                <div className="space-y-3">
-                  <div className="bg-secondary rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground mb-1">Your Answer:</p>
-                    <p className="text-sm text-foreground">{sub.answer_text}</p>
-                    {sub.attachment_url && (
-                      <a href={sub.attachment_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 mt-2">
-                        <Image className="h-3 w-3" /> View Attachment
-                      </a>
-                    )}
-                  </div>
-                  {sub.review_text && (
-                    <div className="bg-primary/5 rounded-lg p-3">
-                      <p className="text-xs text-muted-foreground mb-1">Teacher Feedback:</p>
-                      <p className="text-sm text-foreground">{sub.review_text}</p>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-success text-xs">
-                      <CheckCircle className="h-3 w-3" /> Submitted
-                    </div>
-                    {/* Reaction after submission */}
-                    <div className="flex items-center gap-1">
-                      <SmilePlus className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground mr-1">How did it go?</span>
-                      {EMOJIS.map(e => (
-                        <button
-                          key={e.score}
-                          onClick={() => handleReaction(sub.id, e.score)}
-                          className={`text-lg hover:scale-125 transition-transform ${sub.reaction_score === e.score ? 'scale-125' : 'opacity-50 hover:opacity-100'}`}
-                          title={e.label}
-                        >
-                          {e.emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Textarea
-                    value={answerDraft[c.id] || ''}
-                    onChange={e => setAnswerDraft(prev => ({ ...prev, [c.id]: e.target.value }))}
-                    placeholder="Write your answer..."
-                    rows={3}
-                  />
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      ref={uploadingFor === c.id ? fileRef : undefined}
-                      accept="image/*"
-                      className="hidden"
-                      onChange={e => {
-                        const f = e.target.files?.[0];
-                        if (f) setAttachments(prev => ({ ...prev, [c.id]: f }));
-                      }}
-                    />
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setUploadingFor(c.id);
-                      const input = document.createElement('input');
-                      input.type = 'file'; input.accept = 'image/*';
-                      input.onchange = (ev) => {
-                        const f = (ev.target as HTMLInputElement).files?.[0];
-                        if (f) setAttachments(prev => ({ ...prev, [c.id]: f }));
-                      };
-                      input.click();
-                    }}>
-                      <Image className="h-3 w-3 mr-1" /> {attachments[c.id] ? attachments[c.id].name : 'Attach Image'}
-                    </Button>
-                    <Button size="sm" onClick={() => handleSubmit(c.id)} disabled={!answerDraft[c.id]?.trim() || submitting}>
-                      <Send className="h-3 w-3 mr-1" /> Submit
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {challenges.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Trophy className="h-12 w-12 mx-auto mb-3 opacity-40" />
-            <p>No active challenges right now. Check back later!</p>
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <div className="text-center py-12 text-muted-foreground">Loading challenges...</div>
+      ) : challenges.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <Trophy className="h-12 w-12 mx-auto mb-3 opacity-40" />
+          <p>No active challenges right now. Check back later!</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {challenges.map(c => {
+            const sub = submissions[c.id];
+            return (
+              <ChallengeCard
+                key={c.id}
+                challenge={c}
+                submission={sub}
+                answerDraft={answerDraft[c.id] || ''}
+                attachment={attachments[c.id]}
+                submitting={submitting}
+                onDraftChange={(val) => setAnswerDraft(prev => ({ ...prev, [c.id]: val }))}
+                onAttach={(file) => setAttachments(prev => ({ ...prev, [c.id]: file }))}
+                onSubmit={() => handleSubmit(c.id)}
+                onReaction={(score) => handleReaction(sub?.id, score)}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
+
+// Extracted challenge card component
+interface ChallengeCardProps {
+  challenge: Challenge;
+  submission?: MySubmission;
+  answerDraft: string;
+  attachment?: File;
+  submitting: boolean;
+  onDraftChange: (val: string) => void;
+  onAttach: (file: File) => void;
+  onSubmit: () => void;
+  onReaction: (score: number) => void;
+}
+
+const ChallengeCard = ({ challenge: c, submission: sub, answerDraft, attachment, submitting, onDraftChange, onAttach, onSubmit, onReaction }: ChallengeCardProps) => (
+  <div className="bg-card rounded-xl border border-border p-5 shadow-card">
+    <div className="flex items-start justify-between mb-3">
+      <div>
+        <h3 className="font-semibold text-foreground">{c.title}</h3>
+        <p className="text-sm text-muted-foreground mt-1">{c.description}</p>
+        {c.due_date && (
+          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+            <Clock className="h-3 w-3" /> Due: {new Date(c.due_date).toLocaleDateString()}
+          </p>
+        )}
+      </div>
+      {sub?.is_winner && <Badge className="bg-warning text-warning-foreground"><Trophy className="h-3 w-3 mr-1" />Winner!</Badge>}
+    </div>
+
+    {sub ? (
+      <SubmissionView submission={sub} onReaction={onReaction} />
+    ) : (
+      <SubmissionForm
+        answerDraft={answerDraft}
+        attachment={attachment}
+        submitting={submitting}
+        onDraftChange={onDraftChange}
+        onAttach={onAttach}
+        onSubmit={onSubmit}
+      />
+    )}
+  </div>
+);
+
+const SubmissionView = ({ submission: sub, onReaction }: { submission: MySubmission; onReaction: (score: number) => void }) => (
+  <div className="space-y-3">
+    <div className="bg-secondary rounded-lg p-3">
+      <p className="text-xs text-muted-foreground mb-1">Your Answer:</p>
+      <p className="text-sm text-foreground">{sub.answer_text}</p>
+      {sub.attachment_url && (
+        <a href={sub.attachment_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 mt-2">
+          <Image className="h-3 w-3" /> View Attachment
+        </a>
+      )}
+    </div>
+    {sub.review_text && (
+      <div className="bg-primary/5 rounded-lg p-3">
+        <p className="text-xs text-muted-foreground mb-1">Teacher Feedback:</p>
+        <p className="text-sm text-foreground">{sub.review_text}</p>
+      </div>
+    )}
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-1 text-success text-xs">
+        <CheckCircle className="h-3 w-3" /> Submitted
+      </div>
+      <div className="flex items-center gap-1">
+        <SmilePlus className="h-3 w-3 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground mr-1">How did it go?</span>
+        {EMOJIS.map(e => (
+          <button
+            key={e.score}
+            onClick={() => onReaction(e.score)}
+            className={`text-lg hover:scale-125 transition-transform ${sub.reaction_score === e.score ? 'scale-125' : 'opacity-50 hover:opacity-100'}`}
+            title={e.label}
+          >
+            {e.emoji}
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+interface SubmissionFormProps {
+  answerDraft: string;
+  attachment?: File;
+  submitting: boolean;
+  onDraftChange: (val: string) => void;
+  onAttach: (file: File) => void;
+  onSubmit: () => void;
+}
+
+const SubmissionForm = ({ answerDraft, attachment, submitting, onDraftChange, onAttach, onSubmit }: SubmissionFormProps) => (
+  <div className="space-y-2">
+    <Textarea
+      value={answerDraft}
+      onChange={e => onDraftChange(e.target.value)}
+      placeholder="Write your answer..."
+      rows={3}
+    />
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" onClick={() => {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = 'image/*';
+        input.onchange = (ev) => {
+          const f = (ev.target as HTMLInputElement).files?.[0];
+          if (f) onAttach(f);
+        };
+        input.click();
+      }}>
+        <Image className="h-3 w-3 mr-1" /> {attachment ? attachment.name : 'Attach Image'}
+      </Button>
+      <Button size="sm" onClick={onSubmit} disabled={!answerDraft.trim() || submitting}>
+        <Send className="h-3 w-3 mr-1" /> Submit
+      </Button>
+    </div>
+  </div>
+);
 
 export default StudentChallenges;
