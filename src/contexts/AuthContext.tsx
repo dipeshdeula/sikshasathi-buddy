@@ -5,7 +5,7 @@ import type { AppUser, Role } from '../lib/data';
 interface AuthContextType {
   user: AppUser | null;
   login: (email: string, password: string) => Promise<{ success: boolean; unverified?: boolean }>;
-  register: (name: string, email: string, password: string, role: Role, classLevel?: string, section?: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string, role: Role) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -53,7 +53,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setTimeout(async () => {
             const appUser = await fetchAppUser(session.user.id, session.user.email || '');
             if (appUser) {
-              // Block unverified students from staying logged in
               if (appUser.role === 'STUDENT' && !appUser.isVerified) {
                 await supabase.auth.signOut();
                 setUser(null);
@@ -104,7 +103,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const appUser = await fetchAppUser(data.user.id, data.user.email || '');
     if (!appUser) return { success: false };
 
-    // Block unverified students
     if (appUser.role === 'STUDENT' && !appUser.isVerified) {
       await supabase.auth.signOut();
       return { success: false, unverified: true };
@@ -115,25 +113,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { success: true };
   };
 
-  const register = async (name: string, email: string, password: string, role: Role, classLevel?: string, section?: string) => {
+  const register = async (name: string, email: string, password: string, role: Role) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: name, role, preferred_class_level: classLevel, preferred_section: section },
+        data: { full_name: name, role },
       },
     });
     if (error || !data.user) return false;
 
     await new Promise(r => setTimeout(r, 500));
-
-    // Update preferred fields on profile (trigger may not handle these)
-    if (role === 'STUDENT' && (classLevel || section)) {
-      await supabase.from('profiles').update({
-        preferred_class_level: classLevel,
-        preferred_section: section,
-      } as any).eq('id', data.user.id);
-    }
 
     // For students, sign them out immediately (they need verification)
     if (role === 'STUDENT') {
