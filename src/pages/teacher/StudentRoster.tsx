@@ -303,7 +303,7 @@ const StudentRoster = () => {
     <div className="animate-fade-in space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Users className="h-6 w-6 text-primary" /> Student Roster
+          <Users className="h-6 w-6 text-primary" /> Student
         </h1>
         <Button onClick={() => setShowCreate(true)}>
           <UserPlus className="h-4 w-4 mr-2" /> Add Student
