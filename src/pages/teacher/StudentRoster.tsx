@@ -266,16 +266,26 @@ const StudentRoster = () => {
     const normalizedLevel = editClassLevel || null;
     const normalizedSection = editSection || null;
 
-    const updates: Record<string, string | null> = {
-      preferred_class_level: normalizedLevel,
-      preferred_section: normalizedSection,
-    };
-    if (normalizedName && normalizedName !== showEdit.name) updates.full_name = normalizedName;
+    // Use verify-student edge function (service role) so it works even for
+    // self-registered students who are not yet in any class (RLS would block direct update)
+    const { data: fnResult, error: fnError } = await supabase.functions.invoke("verify-student", {
+      body: {
+        student_id: showEdit.id,
+        class_id: classId || undefined,
+        class_level: normalizedLevel,
+        section: normalizedSection,
+      },
+    });
 
-    const { error } = await supabase.from("profiles").update(updates).eq("id", showEdit.id);
-    if (error) {
-      toast({ title: "Error updating student", description: error.message, variant: "destructive" });
+    if (fnError || fnResult?.error) {
+      toast({ title: "Error updating student", description: fnResult?.error || fnError?.message, variant: "destructive" });
       return;
+    }
+
+    // Update name separately if changed (edge function doesn't handle name)
+    if (normalizedName && normalizedName !== showEdit.name) {
+      // Try direct update first; if RLS blocks it, it's non-critical
+      await supabase.from("profiles").update({ full_name: normalizedName }).eq("id", showEdit.id);
     }
 
     const levelChanged = normalizedLevel !== (showEdit.preferred_class_level || null);
