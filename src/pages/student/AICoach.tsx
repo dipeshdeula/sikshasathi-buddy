@@ -40,6 +40,7 @@ const AICoach = () => {
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
 
   const topic = topics.find(t => t.id === topicId);
 
@@ -56,9 +57,10 @@ const AICoach = () => {
 
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
-  // Load messages when active conversation changes
+  // Load messages when active conversation changes (skip if we're mid-send)
   useEffect(() => {
     if (!activeConvoId) { setMessages([]); return; }
+    if (sendingRef.current) return;
     (async () => {
       const { data } = await supabase
         .from('coach_messages')
@@ -115,6 +117,7 @@ const AICoach = () => {
       .select('id')
       .single();
     if (error || !data) throw new Error('Failed to create conversation');
+    // Set ID without triggering message reload (sendingRef guards it)
     setActiveConvoId(data.id);
     fetchConversations();
     return data.id;
@@ -126,6 +129,7 @@ const AICoach = () => {
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: question }]);
     setLoading(true);
+    sendingRef.current = true;
 
     try {
       const convoId = await ensureConversation();
@@ -164,7 +168,7 @@ const AICoach = () => {
       toast({ title: 'Coach Error', description: err.message || 'Failed to get response', variant: 'destructive' });
     }
     setLoading(false);
-
+    sendingRef.current = false;
     await supabase.from('audit_logs').insert({
       actor_user_id: user?.id || null, action: 'coach_question',
       entity_type: 'ai_coach', entity_id: topicId,
@@ -175,6 +179,7 @@ const AICoach = () => {
   const showAnswer = async () => {
     if (!topic) return;
     setLoading(true);
+    sendingRef.current = true;
     try {
       const convoId = await ensureConversation();
 
@@ -200,7 +205,7 @@ const AICoach = () => {
       toast({ title: 'Coach Error', description: err.message || 'Failed to get answer', variant: 'destructive' });
     }
     setLoading(false);
-
+    sendingRef.current = false;
     await supabase.from('audit_logs').insert({
       actor_user_id: user?.id || null, action: 'coach_show_answer',
       entity_type: 'ai_coach', entity_id: topicId,

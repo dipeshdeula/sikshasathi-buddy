@@ -794,6 +794,94 @@ export type Database = {
           },
         ]
       }
+      self_learning_modules: {
+        Row: {
+          content: string | null
+          created_at: string
+          examples_json: Json | null
+          id: string
+          is_completed: boolean
+          order_index: number
+          path_id: string
+          references_json: Json | null
+          title: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          examples_json?: Json | null
+          id?: string
+          is_completed?: boolean
+          order_index?: number
+          path_id: string
+          references_json?: Json | null
+          title: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          examples_json?: Json | null
+          id?: string
+          is_completed?: boolean
+          order_index?: number
+          path_id?: string
+          references_json?: Json | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "self_learning_modules_path_id_fkey"
+            columns: ["path_id"]
+            isOneToOne: false
+            referencedRelation: "self_learning_paths"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      self_learning_paths: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          roadmap_json: Json | null
+          status: string
+          student_id: string
+          subject_area: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          roadmap_json?: Json | null
+          status?: string
+          student_id: string
+          subject_area?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          roadmap_json?: Json | null
+          status?: string
+          student_id?: string
+          subject_area?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "self_learning_paths_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_badges: {
         Row: {
           awarded_at: string

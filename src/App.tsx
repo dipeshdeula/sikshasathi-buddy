@@ -33,6 +33,7 @@ import StudentProgress from "./pages/student/Progress";
 import StudentChallenges from "./pages/student/Challenges";
 import StudentPresentations from "./pages/student/Presentations";
 import QuizSolver from "./pages/student/QuizSolver";
+import SelfLearning from "./pages/student/SelfLearning";
 
 // Parent
 import ParentSnapshot from "./pages/parent/Snapshot";
@@ -99,6 +100,7 @@ const AppRoutes = () => (
       <Route path="/student/challenges" element={<ProtectedRoute allowedRoles={['student']}><StudentChallenges /></ProtectedRoute>} />
       <Route path="/student/quizzes" element={<ProtectedRoute allowedRoles={['student']}><QuizSolver /></ProtectedRoute>} />
       <Route path="/student/presentations" element={<ProtectedRoute allowedRoles={['student']}><StudentPresentations /></ProtectedRoute>} />
+      <Route path="/student/self-learning" element={<ProtectedRoute allowedRoles={['student']}><SelfLearning /></ProtectedRoute>} />
 
       {/* Parent routes */}
       <Route path="/parent" element={<ProtectedRoute allowedRoles={['parent']}><ParentSnapshot /></ProtectedRoute>} />
