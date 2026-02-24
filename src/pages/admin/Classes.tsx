@@ -275,6 +275,18 @@ const AdminClasses = () => {
     if (!studentDialogClassId) return;
     const { error } = await supabase.from('class_students').insert({ class_id: studentDialogClassId, student_id: studentId });
     if (error) { toast({ title: 'Failed to add student', description: error.message, variant: 'destructive' }); return; }
+
+    const selectedClass = classes.find(c => c.id === studentDialogClassId);
+    if (selectedClass) {
+      await supabase
+        .from('profiles')
+        .update({
+          preferred_class_level: selectedClass.classLevel,
+          preferred_section: selectedClass.section,
+        })
+        .eq('id', studentId);
+    }
+
     setClassStudentIds(prev => [...prev, studentId]);
     fetchAll();
   };

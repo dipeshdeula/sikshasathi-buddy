@@ -261,26 +261,32 @@ const StudentRoster = () => {
 
   const handleEditStudent = async () => {
     if (!showEdit) return;
-    const updates: Record<string, string> = {};
-    if (editName.trim() && editName.trim() !== showEdit.name) updates.full_name = editName.trim();
-    // Always set these — even if unchanged — so the value persists
-    updates.preferred_class_level = editClassLevel || null as any;
-    updates.preferred_section = editSection || null as any;
-    
+
+    const normalizedName = editName.trim();
+    const normalizedLevel = editClassLevel || null;
+    const normalizedSection = editSection || null;
+
+    const updates: Record<string, string | null> = {
+      preferred_class_level: normalizedLevel,
+      preferred_section: normalizedSection,
+    };
+    if (normalizedName && normalizedName !== showEdit.name) updates.full_name = normalizedName;
+
     const { error } = await supabase.from("profiles").update(updates).eq("id", showEdit.id);
     if (error) {
-      toast({ title: "Error updating profile", description: error.message, variant: "destructive" });
+      toast({ title: "Error updating student", description: error.message, variant: "destructive" });
       return;
     }
 
-    // If class level or section changed, try to move student to matching class
-    const levelChanged = editClassLevel !== (showEdit.preferred_class_level || "");
-    const sectionChanged = editSection !== (showEdit.preferred_section || "");
-    if ((levelChanged || sectionChanged) && editClassLevel) {
-      const matchQuery = supabase.from("classes").select("id").eq("teacher_id", user?.id).eq("class_level", editClassLevel);
-      if (editSection) matchQuery.eq("section", editSection);
+    const levelChanged = normalizedLevel !== (showEdit.preferred_class_level || null);
+    const sectionChanged = normalizedSection !== (showEdit.preferred_section || null);
+
+    // Keep enrollment in sync when class/section is changed
+    if ((levelChanged || sectionChanged) && normalizedLevel) {
+      const matchQuery = supabase.from("classes").select("id").eq("teacher_id", user?.id).eq("class_level", normalizedLevel);
+      if (normalizedSection) matchQuery.eq("section", normalizedSection);
       const { data: matchingClasses } = await matchQuery.limit(1);
-      
+
       if (matchingClasses && matchingClasses.length > 0) {
         const newClassId = matchingClasses[0].id;
         if (classId && classId !== newClassId) {
@@ -290,7 +296,7 @@ const StudentRoster = () => {
       }
     }
 
-    toast({ title: "Student updated successfully!" });
+    toast({ title: "Student updated successfully" });
     setShowEdit(null);
     refetchStudents();
     fetchAllStudents();
