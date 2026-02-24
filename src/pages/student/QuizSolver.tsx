@@ -30,6 +30,7 @@ const QuizSolver = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -37,28 +38,71 @@ const QuizSolver = () => {
   }, [user?.id]);
 
   const fetchQuizzes = async () => {
-    // Get student's class
-    const { data: enrollment } = await supabase.from('class_students').select('class_id').eq('student_id', user!.id);
-    const classIds = (enrollment || []).map(e => e.class_id);
-    if (classIds.length === 0) return;
+    if (!user) return;
+    setLoading(true);
 
-    const { data } = await supabase.from('quizzes').select('*').in('class_id', classIds).eq('is_published', true).order('created_at', { ascending: false });
+    // Get student's enrolled classes
+    const { data: enrollment } = await supabase
+      .from('class_students')
+      .select('class_id')
+      .eq('student_id', user.id);
+    const classIds = (enrollment || []).map(e => e.class_id);
+
+    if (classIds.length === 0) {
+      setQuizzes([]);
+      setAttempts({});
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('quizzes')
+      .select('*')
+      .in('class_id', classIds)
+      .eq('is_published', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching quizzes:', error);
+      toast({ title: 'Error loading quizzes', description: error.message, variant: 'destructive' });
+    }
     setQuizzes(data || []);
 
     // Get my attempts
-    const { data: myAttempts } = await supabase.from('quiz_attempts').select('*').eq('student_id', user!.id);
+    const { data: myAttempts } = await supabase
+      .from('quiz_attempts')
+      .select('*')
+      .eq('student_id', user.id);
     const attemptMap: Record<string, AttemptInfo> = {};
-    (myAttempts || []).forEach(a => {
-      if (!attemptMap[a.quiz_id!] || new Date(a.submitted_at!) > new Date(attemptMap[a.quiz_id!].submitted_at)) {
-        attemptMap[a.quiz_id!] = { quiz_id: a.quiz_id!, score: a.score || 0, submitted_at: a.submitted_at! };
+    (myAttempts || []).forEach((a: any) => {
+      const qId = a.quiz_id;
+      if (!qId) return;
+      if (!attemptMap[qId] || new Date(a.submitted_at) > new Date(attemptMap[qId].submitted_at)) {
+        attemptMap[qId] = { quiz_id: qId, score: a.score || 0, submitted_at: a.submitted_at || '' };
       }
     });
     setAttempts(attemptMap);
+    setLoading(false);
   };
 
   const startQuiz = async (quiz: QuizInfo) => {
-    const { data } = await supabase.from('quiz_questions').select('*').eq('quiz_id', quiz.id);
-    setActiveQuiz({ quiz, questions: (data || []).map(mapQuizQuestion) });
+    const { data, error } = await supabase
+      .from('quiz_questions')
+      .select('*')
+      .eq('quiz_id', quiz.id);
+
+    if (error) {
+      toast({ title: 'Error loading questions', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    const questions = (data || []).map(mapQuizQuestion);
+    if (questions.length === 0) {
+      toast({ title: 'No questions found', description: 'This quiz has no questions yet.', variant: 'destructive' });
+      return;
+    }
+
+    setActiveQuiz({ quiz, questions });
     setAnswers({});
     setSubmitted(false);
     setScore(0);
@@ -74,13 +118,19 @@ const QuizSolver = () => {
     setScore(pct);
     setSubmitted(true);
 
-    await supabase.from('quiz_attempts').insert({
+    const { error } = await supabase.from('quiz_attempts').insert({
       quiz_id: activeQuiz.quiz.id,
       student_id: user.id,
       score: pct,
       answers_json: answers,
     });
-    toast({ title: `Score: ${pct}% (${correct}/${activeQuiz.questions.length})` });
+
+    if (error) {
+      console.error('Error saving attempt:', error);
+      toast({ title: 'Score recorded locally', description: 'Could not save to database.', variant: 'destructive' });
+    } else {
+      toast({ title: `Score: ${pct}% (${correct}/${activeQuiz.questions.length})` });
+    }
     fetchQuizzes();
   };
 
@@ -146,7 +196,9 @@ const QuizSolver = () => {
         <FileQuestion className="h-6 w-6 text-primary" /> My Quizzes
       </h1>
 
-      {quizzes.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12 text-muted-foreground">Loading quizzes...</div>
+      ) : quizzes.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <FileQuestion className="h-12 w-12 mx-auto mb-3 opacity-40" />
           <p>No published quizzes available yet.</p>
