@@ -1,6 +1,6 @@
 {
-  "brand": "NAVO.AI",
-  "brandFull": "NAVO A.I",
+  "brand": "NAVO AI",
+  "brandFull": "NAVO AI",
   "tagline": "Redefining the Future of Learning",
   "taglineNepali": "शिक्षामा नयाँ आयाम",
   "nav": {
@@ -10,8 +10,8 @@
     "panel": "{{role}} Panel"
   },
   "hero": {
-    "chip": "🇳🇵 Built for Nepal Schools • Offline-First",
-    "headline": "NAVO A.I",
+    "chip": "🇳🇵 Built for Nepal Schools",
+    "headline": "NAVO AI",
     "slogan": "Redefining the Future of Learning",
     "subtext": "Teacher-first copilot that creates CDC-aligned lessons, tracks learning gaps + wellbeing, and sends weekly parent insights.",
     "bullet1": "CDC lesson plans + exit quizzes, fast and helpful",
@@ -36,7 +36,7 @@
   },
   "stats": {
     "title": "Reshaping School Education with AI",
-    "subtitle": "NAVO.AI brings together teachers, students, and parents in a unified ecosystem powered by intelligent tools.",
+    "subtitle": "NAVO AI brings together teachers, students, and parents in a unified ecosystem powered by intelligent tools.",
     "stat1Label": "Teacher Hours Saved",
     "stat1Value": "10+",
     "stat1Desc": "hours saved per week on lesson planning and assessment",
@@ -52,20 +52,20 @@
   },
   "cta": {
     "title": "Ready to transform your classroom?",
-    "subtitle": "Join teachers across Nepal using NAVO.AI to save time and help every student succeed.",
+    "subtitle": "Join teachers across Nepal using NAVO AI to save time and help every student succeed.",
     "button": "Get Started Now"
   },
   "team": {
-    "title": "Meet the Team Behind NAVO.AI",
+    "title": "Meet the Team Behind NAVO AI",
     "subtitle": "A passionate team of educators, engineers, and designers dedicated to transforming Nepal's classrooms.",
-    "role1": "Project Lead",
-    "role2": "AI Engineer",
-    "role3": "Curriculum Designer",
-    "role4": "Full-Stack Developer",
-    "role5": "UX Designer"
+    "role1": "Project Lead & Developer",
+    "role2": "AI Engineer & DevOps",
+    "role3": "Team Leader / Researcher",
+    "role4": "QA /Testing",
+    "role5": "UI/UX Designer"
   },
   "footer": {
-    "tagline": "AI-powered copilot for Nepal's schools — helping teachers teach, students learn, and parents stay connected.",
+    "tagline": "AI-powered copilot for Nepal's schools helping teachers teach, students learn, and parents stay connected.",
     "quickLinks": "Quick Links",
     "features": "Features",
     "forSchools": "For Schools",
@@ -73,13 +73,13 @@
     "offlineReady": "Offline-Ready Platform",
     "parentReports": "Weekly Parent Reports",
     "contact": "Contact",
-    "location": "Kathmandu, Nepal",
-    "copy": "© 2026 NAVO.AI. All rights reserved.",
-    "madeWith": "Made with ❤️ for Nepal schools"
+    "location": "Hetauda, Nepal",
+    "copy": "© 2026 NAVO AI. All rights reserved.",
+    "madeWith": "Made for Nepal schools"
   },
   "login": {
     "title": "Welcome back",
-    "subtitle": "Sign in to NAVO.AI",
+    "subtitle": "Sign in to NAVO AI",
     "email": "Email",
     "password": "Password",
     "submit": "Sign in",
@@ -89,7 +89,7 @@
   },
   "register": {
     "title": "Create account",
-    "subtitle": "Join NAVO.AI",
+    "subtitle": "Join NAVO AI",
     "name": "Full Name",
     "email": "Email",
     "password": "Password",
@@ -101,6 +101,6 @@
     "studentNote": "Student accounts require teacher verification before first login."
   },
   "sidebar": {
-    "brand": "NAVO.AI"
+    "brand": "NAVO AI"
   }
 }

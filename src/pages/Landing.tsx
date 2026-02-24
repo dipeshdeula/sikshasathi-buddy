@@ -54,11 +54,11 @@ const Landing = () => {
   ];
 
   const teamMembers = [
-    { name: 'Dipesh Deula', role: t('team.role1'), photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&crop=face' },
-    { name: 'Aayush Sharma', role: t('team.role2'), photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&h=300&fit=crop&crop=face' },
-    { name: 'Srijana Basnet', role: t('team.role3'), photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=300&fit=crop&crop=face' },
-    { name: 'Rohan Thapa', role: t('team.role4'), photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&h=300&fit=crop&crop=face' },
-    { name: 'Priya Adhikari', role: t('team.role5'), photo: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&h=300&fit=crop&crop=face' },
+    { name: 'Dipesh Deula', role: t('team.role1'), photo: '/src/assets/team/dipesh.jpeg' },
+    { name: 'Prajjwal Gwachha', role: t('team.role2'), photo: '/src/assets/team/prajjwal.jpeg' },
+    { name: 'Sameer Ansari', role: t('team.role3'), photo: '/src/assets/team/sameer.jpeg' },
+    { name: 'Sushant Bidari', role: t('team.role4'), photo: '/src/assets/team/sushant.jpeg' },
+    { name: 'Aanand Gupta', role: t('team.role5'), photo: '/src/assets/team/aanand.jpeg' },
   ];
 
   const scrollToFeatures = () => {
@@ -75,7 +75,7 @@ const Landing = () => {
               <img src="../assets/logo.png" alt="Logo" className="h-5 w-5" />
             </div> */}
             <img src="/src/assets/logo.png" alt="Logo" className="h-5 w-5" />
-            <span className="text-xl font-bold text-foreground">Navo.AI</span>
+            <span className="text-xl font-bold text-foreground">NAVO</span>
           </div>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
