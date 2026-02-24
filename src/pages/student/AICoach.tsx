@@ -231,9 +231,7 @@ const AICoach = () => {
               }`}
             >
               <MessageSquare className="h-4 w-4 shrink-0" />
-              <div className="flex-1 min-w-0 overflow-x-auto scrollbar-thin">
-                <span className="whitespace-nowrap">{c.title}</span>
-              </div>
+              <span className="flex-1 min-w-0 truncate">{c.title}</span>
               <button
                 onClick={e => deleteConversation(c.id, e)}
                 className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity shrink-0"
@@ -285,8 +283,8 @@ const AICoach = () => {
           </div>
           <div className="w-48 shrink-0">
             <Select value={topicId} onValueChange={setTopicId}>
-              <SelectTrigger><SelectValue placeholder="Pick topic" /></SelectTrigger>
-              <SelectContent>{topics.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent>
+              <SelectTrigger className="truncate"><SelectValue placeholder="Pick topic" /></SelectTrigger>
+              <SelectContent>{topics.map(t => <SelectItem key={t.id} value={t.id} className="max-w-[250px] truncate">{t.title}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </div>
