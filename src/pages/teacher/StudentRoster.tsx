@@ -30,8 +30,10 @@ const StudentRoster = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { data: classes, refetch: refetchClasses } = useTeacherClasses(user?.id);
-  const classId = classes[0]?.id;
-  const { data: students } = useClassStudents(classId);
+  
+  const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
+  const classId = selectedClassId || classes[0]?.id;
+  const { data: students, refetch: refetchStudents } = useClassStudents(classId);
   const { data: mastery } = useClassMastery(classId);
   const { data: checkins } = useClassCheckins(classId);
 
@@ -106,19 +108,18 @@ const StudentRoster = () => {
     if (!newName.trim() || !newEmail.trim() || !newPassword.trim() || !classId) return;
     setCreating(true);
     try {
-      // Create auth user via supabase admin (this will trigger handle_new_user which creates profile + role)
-      const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email: newEmail.trim(),
-        password: newPassword.trim(),
-        options: { data: { full_name: newName.trim(), role: 'STUDENT' } },
-      });
-      if (authErr) throw authErr;
-      if (!authData.user) throw new Error('User creation failed');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      // Add to class
-      await supabase.from('class_students').insert({ class_id: classId, student_id: authData.user.id });
+      const res = await supabase.functions.invoke('create-student', {
+        body: { full_name: newName.trim(), email: newEmail.trim(), password: newPassword.trim(), class_id: classId },
+      });
+      if (res.error) throw new Error(res.error.message);
+      if (res.data?.error) throw new Error(res.data.error);
+
       toast({ title: 'Student account created and added to class!' });
       setNewName(''); setNewEmail(''); setNewPassword(''); setShowCreate(false);
+      refetchStudents();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -130,6 +131,7 @@ const StudentRoster = () => {
     if (!classId) return;
     await supabase.from('class_students').delete().eq('class_id', classId).eq('student_id', studentId);
     toast({ title: 'Student removed from class' });
+    refetchStudents();
   };
 
   const filtered = students.filter((s: any) => s.name.toLowerCase().includes(search.toLowerCase()));
@@ -144,10 +146,16 @@ const StudentRoster = () => {
       </div>
 
       {/* Class Info */}
-      {classId && (
+      {classes.length > 0 && (
         <div className="bg-card rounded-xl border border-border p-4 shadow-card">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-foreground">{classes[0]?.name}</span>
+            {classes.length > 1 && (
+              <Select value={classId || ''} onValueChange={v => setSelectedClassId(v)}>
+                <SelectTrigger className="w-44 h-8 text-xs"><SelectValue placeholder="Select Class" /></SelectTrigger>
+                <SelectContent>{classes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              </Select>
+            )}
+            {classes.length === 1 && <span className="text-sm font-medium text-foreground">{classes[0]?.name}</span>}
             <Badge variant="secondary">{students.length} students</Badge>
             <Select value={classInfo.class_level || ''} onValueChange={v => updateClassField('class_level', v)}>
               <SelectTrigger className="w-32 h-8 text-xs"><SelectValue placeholder="Class Level" /></SelectTrigger>
