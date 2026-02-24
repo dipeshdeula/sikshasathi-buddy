@@ -70,6 +70,7 @@ const Register = () => {
               <Select value={role} onValueChange={v => setRole(v as Role)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
                   <SelectItem value="TEACHER">Teacher</SelectItem>
                   <SelectItem value="STUDENT">Student</SelectItem>
                   <SelectItem value="PARENT">Parent</SelectItem>
