@@ -61,11 +61,9 @@ const StudentRoster = () => {
   const [newSection, setNewSection] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // Pending students from edge function
-  const [pendingStudents, setPendingStudents] = useState<PendingStudent[]>([]);
-  const [pendingLoading, setPendingLoading] = useState(false);
-  // Per-pending-student selections for class level & section
-  const [pendingSelections, setPendingSelections] = useState<Record<string, { classLevel: string; section: string }>>({});
+  // All students from database (via edge function)
+  const [allDbStudents, setAllDbStudents] = useState<PendingStudent[]>([]);
+  const [dbStudentsLoading, setDbStudentsLoading] = useState(false);
 
   // Extra metrics
   const [challengeData, setChallengeData] = useState<Record<string, number>>({});
@@ -73,23 +71,23 @@ const StudentRoster = () => {
   const [badgeData, setBadgeData] = useState<Record<string, number>>({});
   const [lessonVerifData, setLessonVerifData] = useState<Record<string, number>>({});
 
-  // Fetch pending students via edge function
-  const fetchPendingStudents = async () => {
-    setPendingLoading(true);
+  // Fetch all students from database via edge function
+  const fetchAllStudents = async () => {
+    setDbStudentsLoading(true);
     try {
       const res = await supabase.functions.invoke('list-pending-students');
       if (res.data && Array.isArray(res.data)) {
-        setPendingStudents(res.data);
+        setAllDbStudents(res.data);
       }
     } catch (err) {
-      console.warn('Failed to fetch pending students:', err);
+      console.warn('Failed to fetch students:', err);
     } finally {
-      setPendingLoading(false);
+      setDbStudentsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPendingStudents();
+    fetchAllStudents();
   }, []);
 
   // Fetch metrics for enrolled students
@@ -149,7 +147,7 @@ const StudentRoster = () => {
       toast({ title: 'Student verified!' });
       // Refetch from database
       refetchStudents();
-      fetchPendingStudents();
+      fetchAllStudents();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
@@ -157,20 +155,17 @@ const StudentRoster = () => {
 
   const handleAddToClass = async (studentId: string) => {
     if (!classId) { toast({ title: 'No class selected', variant: 'destructive' }); return; }
-    const sel = pendingSelections[studentId];
     try {
       const res = await supabase.functions.invoke('verify-student', {
         body: {
           student_id: studentId,
           class_id: classId,
-          class_level: sel?.classLevel || undefined,
-          section: sel?.section || undefined,
         },
       });
       if (res.data?.error) throw new Error(res.data.error);
       toast({ title: 'Student added to class!' });
-      setPendingStudents(prev => prev.filter(s => s.id !== studentId));
       refetchStudents();
+      fetchAllStudents();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
@@ -196,6 +191,7 @@ const StudentRoster = () => {
       setNewName(''); setNewEmail(''); setNewPassword(''); setNewClassLevel(''); setNewSection('');
       setShowCreate(false);
       refetchStudents();
+      fetchAllStudents();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -221,7 +217,7 @@ const StudentRoster = () => {
     toast({ title: 'Student updated' });
     setShowEdit(null);
     refetchStudents();
-    fetchPendingStudents();
+    fetchAllStudents();
   };
 
   const openEdit = (s: PendingStudent) => {
@@ -231,12 +227,12 @@ const StudentRoster = () => {
     setEditSection(s.preferred_section || '');
   };
 
-  // Combine enrolled students + pending (unassigned) students
+  // Combine enrolled students + unassigned students from DB
   const allStudents = [
     ...students.map((s: any) => ({ ...s, source: 'enrolled' as const })),
-    ...pendingStudents
+    ...allDbStudents
       .filter(ps => !students.some((s: any) => s.id === ps.id))
-      .map(ps => ({ id: ps.id, name: ps.name, isVerified: ps.is_verified, classLevel: ps.preferred_class_level, section: ps.preferred_section, source: 'pending' as const })),
+      .map(ps => ({ id: ps.id, name: ps.name, isVerified: ps.is_verified, classLevel: ps.preferred_class_level, section: ps.preferred_section, source: 'unassigned' as const })),
   ];
   const filtered = allStudents.filter((s: any) => s.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -262,9 +258,10 @@ const StudentRoster = () => {
               <span className="text-sm font-medium text-foreground">{classes[0]?.name}</span>
             )}
             <Badge variant="secondary">{students.length} enrolled</Badge>
-            {pendingStudents.filter(ps => !students.some((s: any) => s.id === ps.id)).length > 0 && (
-              <Badge variant="outline" className="text-warning border-warning">{pendingStudents.filter(ps => !students.some((s: any) => s.id === ps.id)).length} pending</Badge>
+            {allDbStudents.filter(ps => !ps.is_verified && !students.some((s: any) => s.id === ps.id)).length > 0 && (
+              <Badge variant="outline" className="text-warning border-warning">{allDbStudents.filter(ps => !ps.is_verified && !students.some((s: any) => s.id === ps.id)).length} pending</Badge>
             )}
+            <Badge variant="outline">{allDbStudents.length} total students</Badge>
           </div>
         </div>
       )}
@@ -332,12 +329,10 @@ const StudentRoster = () => {
                         <Button variant="ghost" size="sm" onClick={() => setShowView(m)} title="View details"><Eye className="h-3 w-3" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => openEdit({ id: s.id, name: s.name, is_verified: s.isVerified, preferred_class_level: s.classLevel, preferred_section: s.section })} title="Edit"><Pencil className="h-3 w-3" /></Button>
                         {isPending && (
-                          <>
-                            <Button variant="ghost" size="sm" onClick={() => handleVerifyStudent(s.id)} title="Verify"><ShieldCheck className="h-3 w-3 text-success" /></Button>
-                            {s.source === 'pending' && (
-                              <Button variant="ghost" size="sm" onClick={() => handleAddToClass(s.id)} title="Add to class"><UserPlus className="h-3 w-3 text-primary" /></Button>
-                            )}
-                          </>
+                          <Button variant="ghost" size="sm" onClick={() => handleVerifyStudent(s.id)} title="Verify"><ShieldCheck className="h-3 w-3 text-success" /></Button>
+                        )}
+                        {s.source === 'unassigned' && (
+                          <Button variant="ghost" size="sm" onClick={() => handleAddToClass(s.id)} title="Add to class"><UserPlus className="h-3 w-3 text-primary" /></Button>
                         )}
                         <Button variant="ghost" size="sm" onClick={() => handleRemoveStudent(s.id)} title="Remove"><Trash2 className="h-3 w-3 text-destructive" /></Button>
                       </div>
