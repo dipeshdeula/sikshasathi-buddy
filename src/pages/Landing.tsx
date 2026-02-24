@@ -33,7 +33,7 @@ const subjectIcons = [
 ];
 
 const Landing = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { displayed: typedBrand, done: brandDone } = useTypewriter(t('hero.headline'), 100);
 
   const features = [
@@ -121,15 +121,17 @@ const Landing = () => {
                 {t('hero.slogan')}
               </motion.p>
 
-              {/* Nepali tagline */}
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: brandDone ? 1 : 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="mt-1 text-base sm:text-lg text-muted-foreground italic"
-              >
-                {t('taglineNepali')}
-              </motion.p>
+              {/* Nepali tagline — only in English mode */}
+              {i18n.language !== 'ne' && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: brandDone ? 1 : 0 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                  className="mt-1 text-base sm:text-lg text-muted-foreground italic"
+                >
+                  {t('taglineNepali')}
+                </motion.p>
+              )}
 
               <p className="mt-5 text-base lg:text-lg text-muted-foreground max-w-xl mx-auto lg:mx-0">
                 {t('hero.subtext')}
