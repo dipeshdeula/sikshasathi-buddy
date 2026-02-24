@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/store';
+import { useTeacherClasses, useClassStudents, useTeacherLessonPlans, useClassQuizzes, useClassCheckins, useClassMastery } from '@/hooks/use-supabase-data';
 import { BookOpen, FileQuestion, Users, BarChart3, TrendingUp, SmilePlus, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -15,17 +15,17 @@ const StatCard = ({ icon, label, value, to, color }: { icon: React.ReactNode; la
 
 const TeacherDashboard = () => {
   const { user } = useAuth();
+  const { data: classes } = useTeacherClasses(user?.id);
+  const classId = classes[0]?.id;
+  const { data: students } = useClassStudents(classId);
+  const { data: lessons } = useTeacherLessonPlans(user?.id);
+  const { data: quizzes } = useClassQuizzes(classId);
+  const { data: checkins } = useClassCheckins(classId);
+  const { data: mastery } = useClassMastery(classId);
+
   if (!user) return null;
 
-  const classes = db.classes.getByTeacher(user.id);
-  const classId = classes[0]?.id;
-  const students = classId ? db.classes.getStudents(classId) : [];
-  const lessons = user ? db.lessonPlans.getByTeacher(user.id) : [];
-  const quizzes = classId ? db.quizzes.getByClass(classId) : [];
-  const checkins = classId ? db.checkins.getByClass(classId) : [];
   const avgHappiness = checkins.length > 0 ? (checkins.reduce((s, c) => s + c.happinessScore, 0) / checkins.length).toFixed(1) : '—';
-
-  const mastery = classId ? db.mastery.getByClass(classId) : [];
   const avgMastery = mastery.length > 0 ? Math.round(mastery.reduce((s, m) => s + m.masteryScore, 0) / mastery.length) : 0;
 
   return (

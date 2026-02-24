@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles, Save, BookOpen, Pencil, Trash2, FileText, GraduationCap } from 'lucide-react';
+import { Sparkles, Save, BookOpen, Pencil, Trash2, FileText, GraduationCap, Users } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { Grade, Subject, Unit, Topic, LessonPlan, TeacherGuidelineEntry } from '@/lib/data';
 import { mapGrade, mapSubject, mapUnit, mapTopic, mapLessonPlan, mapTeacherGuidelineEntry } from '@/lib/data';
@@ -59,6 +60,10 @@ const LessonPlanBuilder = () => {
   const [tgUnits, setTgUnits] = useState<Unit[]>([]);
   const [tgTopics, setTgTopics] = useState<Topic[]>([]);
 
+  // Lesson completion tracking
+  const [completions, setCompletions] = useState<Record<string, boolean>>({});
+  const [verificationCounts, setVerificationCounts] = useState<Record<string, { verified: number; total: number }>>({});
+
   // Load grades on mount
   useEffect(() => {
     supabase.from('grades').select('*').order('name').then(({ data }) => {
@@ -67,6 +72,59 @@ const LessonPlanBuilder = () => {
     loadLessonPlans();
     loadTeacherGuidelines();
   }, []);
+
+  // Load completions whenever lesson plans change
+  useEffect(() => {
+    if (lessonPlans.length === 0) return;
+    const ids = lessonPlans.map(lp => lp.id);
+    
+    // Load teacher completions
+    supabase.from('lesson_completions').select('*').in('lesson_plan_id', ids).then(({ data }) => {
+      const map: Record<string, boolean> = {};
+      (data || []).forEach((c: any) => { map[c.lesson_plan_id] = c.is_completed; });
+      setCompletions(map);
+    });
+
+    // Load student verification counts
+    Promise.all([
+      supabase.from('student_lesson_verifications').select('lesson_plan_id, is_verified').in('lesson_plan_id', ids),
+      supabase.from('classes').select('id').eq('teacher_id', user?.id || ''),
+    ]).then(async ([verifRes, classRes]) => {
+      const classId = classRes.data?.[0]?.id;
+      let totalStudents = 0;
+      if (classId) {
+        const { count } = await supabase.from('class_students').select('*', { count: 'exact', head: true }).eq('class_id', classId);
+        totalStudents = count || 0;
+      }
+      const counts: Record<string, { verified: number; total: number }> = {};
+      ids.forEach(id => { counts[id] = { verified: 0, total: totalStudents }; });
+      (verifRes.data || []).forEach((v: any) => {
+        if (v.is_verified && counts[v.lesson_plan_id]) {
+          counts[v.lesson_plan_id].verified++;
+        }
+      });
+      setVerificationCounts(counts);
+    });
+  }, [lessonPlans, user?.id]);
+
+  const handleToggleCompletion = async (lessonPlanId: string, completed: boolean) => {
+    if (!user) return;
+    if (completed) {
+      await supabase.from('lesson_completions').upsert({
+        lesson_plan_id: lessonPlanId,
+        teacher_id: user.id,
+        is_completed: true,
+        completed_at: new Date().toISOString(),
+      }, { onConflict: 'lesson_plan_id,teacher_id' } as any);
+    } else {
+      await supabase.from('lesson_completions')
+        .update({ is_completed: false, completed_at: null })
+        .eq('lesson_plan_id', lessonPlanId)
+        .eq('teacher_id', user.id);
+    }
+    setCompletions(prev => ({ ...prev, [lessonPlanId]: completed }));
+    toast({ title: completed ? 'Lesson marked as completed ✅' : 'Lesson marked as incomplete' });
+  };
 
   // Cascade: grade → subjects
   useEffect(() => {
@@ -439,38 +497,60 @@ const LessonPlanBuilder = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Completed</TableHead>
                       <TableHead>Subject</TableHead>
                       <TableHead>Unit</TableHead>
                       <TableHead>Topic</TableHead>
                       <TableHead>Duration</TableHead>
                       <TableHead>Level</TableHead>
+                      <TableHead>Students Verified</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {lessonPlans.map(lp => (
-                      <TableRow key={lp.id}>
-                        <TableCell className="font-medium">{lp.subjectName}</TableCell>
-                        <TableCell>{lp.unitTitle}</TableCell>
-                        <TableCell>{lp.topicTitle}</TableCell>
-                        <TableCell>
-                          <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded">{lp.durationType}</span>
-                        </TableCell>
-                        <TableCell>{lp.classLevel}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs">
-                          {new Date(lp.createdAt).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <Button size="icon" variant="ghost" onClick={() => handleEditLP(lp)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDeleteLP(lp.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {lessonPlans.map(lp => {
+                      const vc = verificationCounts[lp.id];
+                      return (
+                        <TableRow key={lp.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={completions[lp.id] || false}
+                              onCheckedChange={(checked) => handleToggleCompletion(lp.id, !!checked)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{lp.subjectName}</TableCell>
+                          <TableCell>{lp.unitTitle}</TableCell>
+                          <TableCell>{lp.topicTitle}</TableCell>
+                          <TableCell>
+                            <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded">{lp.durationType}</span>
+                          </TableCell>
+                          <TableCell>{lp.classLevel}</TableCell>
+                          <TableCell>
+                            {completions[lp.id] && vc ? (
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                                vc.verified === vc.total && vc.total > 0 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+                              }`}>
+                                <Users className="h-3 w-3 inline mr-1" />{vc.verified}/{vc.total}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs">
+                            {new Date(lp.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-right space-x-1">
+                            <Button size="icon" variant="ghost" onClick={() => handleEditLP(lp)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDeleteLP(lp.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

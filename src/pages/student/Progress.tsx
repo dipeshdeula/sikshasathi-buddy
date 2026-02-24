@@ -1,22 +1,21 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/store';
+import { useStudentMastery, useTopics, useSubjects, useStudentCheckins } from '@/hooks/use-supabase-data';
 import { Progress } from '@/components/ui/progress';
 import { Trophy, Star, Target } from 'lucide-react';
 
 const StudentProgress = () => {
   const { user } = useAuth();
-  if (!user) return null;
+  const { data: mastery } = useStudentMastery(user?.id);
+  const { data: topics } = useTopics();
+  const { data: subjects } = useSubjects();
+  const { data: checkins } = useStudentCheckins(user?.id);
 
-  const mastery = db.mastery.getByStudent(user.id);
-  const topics = db.topics.getAll();
-  const subjects = db.subjects.getAll();
-  const checkins = db.checkins.getByStudent(user.id);
+  if (!user) return null;
 
   const avgMastery = mastery.length > 0 ? Math.round(mastery.reduce((s, m) => s + m.masteryScore, 0) / mastery.length) : 0;
   const topicsAbove80 = mastery.filter(m => m.masteryScore >= 80).length;
   const totalTopics = topics.length;
 
-  // Badges
   const badges = [];
   if (checkins.length >= 1) badges.push({ icon: '🌟', label: 'First Check-in' });
   if (checkins.length >= 5) badges.push({ icon: '🔥', label: '5-Day Streak' });

@@ -1,44 +1,45 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/store';
+import { supabase } from '@/integrations/supabase/client';
+import { useTeacherClasses, useClassStudents, useClassQuizzes, useQuizQuestions } from '@/hooks/use-supabase-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Save } from 'lucide-react';
-import { QuizAttempt } from '@/lib/data';
 
 const ResultsEntry = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const classes = user ? db.classes.getByTeacher(user.id) : [];
+  const { data: classes } = useTeacherClasses(user?.id);
   const classId = classes[0]?.id || '';
-  const students = classId ? db.classes.getStudents(classId) : [];
-  const quizzes = classId ? db.quizzes.getByClass(classId) : [];
+  const { data: students } = useClassStudents(classId);
+  const { data: quizzes } = useClassQuizzes(classId);
   const [selectedQuiz, setSelectedQuiz] = useState('');
   const [scores, setScores] = useState<Record<string, number>>({});
+  const { data: questions } = useQuizQuestions(selectedQuiz || undefined);
 
-  const questions = selectedQuiz ? db.quizzes.getQuestions(selectedQuiz) : [];
   const maxScore = questions.length;
 
-  const handleSave = () => {
-    const attempts: QuizAttempt[] = Object.entries(scores).map(([studentId, score]) => ({
-      id: `attempt-${Date.now()}-${studentId}`,
-      quizId: selectedQuiz,
-      studentId,
-      submittedAt: new Date().toISOString(),
+  const handleSave = async () => {
+    const attempts = Object.entries(scores).map(([studentId, score]) => ({
+      quiz_id: selectedQuiz,
+      student_id: studentId,
       score,
-      answersJson: {},
+      answers_json: {},
     }));
-    db.attempts.bulkCreate(attempts);
+    
+    await supabase.from('quiz_attempts').insert(attempts);
 
     // Update mastery
     const quiz = quizzes.find(q => q.id === selectedQuiz);
     if (quiz) {
-      Object.entries(scores).forEach(([studentId, score]) => {
+      for (const [studentId, score] of Object.entries(scores)) {
         const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-        db.mastery.update(studentId, quiz.topicId, pct);
-      });
+        await supabase.from('mastery_states').upsert({
+          student_id: studentId, topic_id: quiz.topicId, mastery_score: pct, updated_at: new Date().toISOString(),
+        }, { onConflict: 'student_id,topic_id' });
+      }
     }
 
     toast({ title: `Saved ${attempts.length} results!` });
